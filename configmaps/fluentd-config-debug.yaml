@@ -1,0 +1,77 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluentd-config-debug
+  namespace: logging
+data:
+  fluent.conf: |
+    # Enable debug logging
+    <system>
+      log_level debug
+    </system>
+
+    # Input plugin to read container logs
+    <source>
+      @type tail
+      path /var/log/containers/audit-test-app*.log
+      pos_file /var/log/fluentd-audit.log.pos
+      tag audit.*
+      read_from_head true
+      <parse>
+        @type regexp
+        expression /^(?<time>.+) (?<stream>stdout|stderr) (?<logtag>[^ ]*) (?<log>.*)$/
+        time_format %Y-%m-%dT%H:%M:%S.%N%:z
+      </parse>
+    </source>
+
+    # Simple grep filter
+    <filter audit.**>
+      @type grep
+      <regexp>
+        key log
+        pattern /\[AUDIT\]/
+      </regexp>
+    </filter>
+
+    # Add record transformer to see what's happening
+    <filter audit.**>
+      @type record_transformer
+      <record>
+        hostname \${hostname}
+        tag \${tag}
+        time \${time}
+      </record>
+    </filter>
+
+    # Copy to both stdout and elasticsearch
+    <match audit.**>
+      @type copy
+      <store>
+        @type stdout
+        @id out_stdout
+      </store>
+      <store>
+        @type elasticsearch
+        @id out_es
+        @log_level debug
+        include_tag_key true
+        scheme https
+        ssl_verify false
+        host "#{ENV['ELASTICSEARCH_HOST']}"
+        port "#{ENV['ELASTICSEARCH_PORT']}"
+        user "#{ENV['ELASTICSEARCH_USERNAME']}"
+        password "#{ENV['ELASTICSEARCH_PASSWORD']}"
+        logstash_prefix auditor
+        logstash_dateformat %Y.%m.%d
+        suppress_type_name true
+        <buffer>
+          @type file
+          path /var/log/fluentd-buffers/audit.buffer
+          flush_mode interval
+          flush_interval 5s
+          chunk_limit_size 1M
+          total_limit_size 500M
+          overflow_action drop_oldest_chunk
+        </buffer>
+      </store>
+    </match>

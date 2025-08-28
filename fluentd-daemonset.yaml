@@ -1,0 +1,121 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: fluentd
+  namespace: logging
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: fluentd
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - namespaces
+  verbs:
+  - get
+  - list
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: fluentd
+roleRef:
+  kind: ClusterRole
+  name: fluentd
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+- kind: ServiceAccount
+  name: fluentd
+  namespace: logging
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: fluentd
+  namespace: logging
+  labels:
+    k8s-app: fluentd-logging
+spec:
+  selector:
+    matchLabels:
+      k8s-app: fluentd-logging
+  template:
+    metadata:
+      labels:
+        k8s-app: fluentd-logging
+    spec:
+      serviceAccount: fluentd
+      serviceAccountName: fluentd
+      tolerations:
+      - key: node-role.kubernetes.io/master
+        effect: NoSchedule
+      containers:
+      - name: fluentd
+        image: fluent/fluentd-kubernetes-daemonset:v1-debian-elasticsearch
+        env:
+          - name: K8S_NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+          - name: ELASTICSEARCH_HOST
+            valueFrom:
+              configMapKeyRef:
+                name: elasticsearch-config
+                key: elasticsearch-host
+          - name: ELASTICSEARCH_PORT
+            valueFrom:
+              configMapKeyRef:
+                name: elasticsearch-config
+                key: elasticsearch-port
+          - name: ELASTICSEARCH_USERNAME
+            valueFrom:
+              configMapKeyRef:
+                name: elasticsearch-config
+                key: elasticsearch-username
+          - name: ELASTICSEARCH_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: elasticsearch-creds
+                key: password
+          - name: ELASTICSEARCH_SCHEME
+            valueFrom:
+              configMapKeyRef:
+                name: elasticsearch-config
+                key: elasticsearch-scheme
+          - name: KUBERNETES_URL
+            value: "https://kubernetes.default.svc:443"
+          - name: KUBERNETES_VERIFY_SSL
+            value: "true"
+          - name: KUBERNETES_CA_FILE
+            value: "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+          - name: FLUENT_CONTAINER_TAIL_EXCLUDE_PATH
+            value: '["\/var\/log\/containers\/fluentd*.log"]'
+        resources:
+          limits:
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 200Mi
+        volumeMounts:
+        - name: varlog
+          mountPath: /var/log
+        - name: dockercontainerlogsdirectory
+          mountPath: /var/log/pods
+          readOnly: true
+        - name: config-volume
+          mountPath: /fluentd/etc/
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: varlog
+        hostPath:
+          path: /var/log
+      - name: dockercontainerlogsdirectory
+        hostPath:
+          path: /var/log/pods
+      - name: config-volume
+        configMap:
+          name: fluentd-config
