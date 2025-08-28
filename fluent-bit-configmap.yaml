@@ -60,21 +60,84 @@ data:
         Script  /fluent-bit/etc/index_router.lua
         Call    determine_index
 
-    # Output to Elasticsearch
+    # Rewrite tags based on content for routing
+    [FILTER]
+        Name                rewrite_tag
+        Match               kube.*
+        Rule                $log .*\[AUDIT\].* audit.logs false
+        Rule                $kubernetes['labels']['app'] ^api-gateway$ api.logs false
+        Rule                $kubernetes['labels']['app'] ^jobs-worker$ jobs.logs false  
+        Rule                $kubernetes['labels']['app'] ^audit-service$ audit-service.logs false
+        Emitter_Name        re_emitted
+
+    # Remove es_index field from all routed logs
+    [FILTER]
+        Name    record_modifier
+        Match   *.logs
+        Remove_key es_index
+
+    # Output for AUDIT logs
     [OUTPUT]
         Name                es
-        Match               kube.*
+        Match               audit.logs
         Host                ${ELASTICSEARCH_HOST}
         Port                ${ELASTICSEARCH_PORT}
         HTTP_User           ${ELASTICSEARCH_USERNAME}
         HTTP_Passwd         ${ELASTICSEARCH_PASSWORD}
         tls                 Off
         tls.verify          Off
-        Logstash_Format     On
-        Logstash_Prefix_Key es_index
+        Index               audit-trail
         Type                _doc
         Suppress_Type_Name  On
-        Buffer_Size         512KB
+        Buffer_Size         2MB
+        Retry_Limit         3
+
+    # Output for API Gateway logs 
+    [OUTPUT]
+        Name                es
+        Match               api.logs
+        Host                ${ELASTICSEARCH_HOST}
+        Port                ${ELASTICSEARCH_PORT}
+        HTTP_User           ${ELASTICSEARCH_USERNAME}
+        HTTP_Passwd         ${ELASTICSEARCH_PASSWORD}
+        tls                 Off
+        tls.verify          Off
+        Index               api-gateway
+        Type                _doc
+        Suppress_Type_Name  On
+        Buffer_Size         2MB
+        Retry_Limit         3
+
+    # Output for Jobs Worker logs
+    [OUTPUT]
+        Name                es
+        Match               jobs.logs
+        Host                ${ELASTICSEARCH_HOST}
+        Port                ${ELASTICSEARCH_PORT}
+        HTTP_User           ${ELASTICSEARCH_USERNAME}
+        HTTP_Passwd         ${ELASTICSEARCH_PASSWORD}
+        tls                 Off
+        tls.verify          Off
+        Index               jobs-worker
+        Type                _doc
+        Suppress_Type_Name  On
+        Buffer_Size         2MB
+        Retry_Limit         3
+
+    # Output for Audit Service logs (non-AUDIT)
+    [OUTPUT]
+        Name                es
+        Match               audit-service.logs
+        Host                ${ELASTICSEARCH_HOST}
+        Port                ${ELASTICSEARCH_PORT}
+        HTTP_User           ${ELASTICSEARCH_USERNAME}
+        HTTP_Passwd         ${ELASTICSEARCH_PASSWORD}
+        tls                 Off
+        tls.verify          Off
+        Index               audit-service
+        Type                _doc
+        Suppress_Type_Name  On
+        Buffer_Size         2MB
         Retry_Limit         3
 
   parsers.conf: |
@@ -92,9 +155,6 @@ data:
 
   index_router.lua: |
     function determine_index(tag, timestamp, record)
-        -- Add timestamp
-        record["timestamp"] = os.date("!%Y-%m-%dT%H:%M:%S.000Z")
-        
         -- Determine index based on log content
         if record["log"] and string.find(record["log"], "%[AUDIT%]") then
             record["es_index"] = "audit-trail"
@@ -108,6 +168,7 @@ data:
                 record["es_index"] = "generic-logs"
             end
         end
+        
         
         return 1, timestamp, record
     end
