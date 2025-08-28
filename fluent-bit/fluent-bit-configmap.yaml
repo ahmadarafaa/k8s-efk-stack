@@ -13,6 +13,10 @@ data:
         HTTP_Server   On
         HTTP_Listen   0.0.0.0
         HTTP_Port     2020
+        storage.path  /var/log/flb-storage/
+        storage.sync  normal
+        storage.checksum  off
+        storage.backlog.mem_limit  50MB
 
     [INPUT]
         Name              tail
@@ -21,10 +25,11 @@ data:
         Parser            cri
         Tag               kube.*
         Refresh_Interval  5
-        Mem_Buf_Limit     50MB
+        Mem_Buf_Limit     100MB
         Skip_Long_Lines   On
         Skip_Empty_Lines  On
         Read_from_Head    true
+        storage.type      filesystem
 
     # Add Kubernetes metadata
     [FILTER]
@@ -69,6 +74,7 @@ data:
         Rule                $kubernetes['labels']['app'] ^jobs-worker$ jobs.logs false  
         Rule                $kubernetes['labels']['app'] ^audit-service$ audit-service.logs false
         Emitter_Name        re_emitted
+        Emitter_Storage.type  filesystem
 
     # Remove es_index field from all routed logs
     [FILTER]
@@ -89,7 +95,7 @@ data:
         Index               audit-trail
         Type                _doc
         Suppress_Type_Name  On
-        Buffer_Size         2MB
+        Buffer_Size         5MB
         Retry_Limit         3
 
     # Output for API Gateway logs 
@@ -105,7 +111,7 @@ data:
         Index               api-gateway
         Type                _doc
         Suppress_Type_Name  On
-        Buffer_Size         2MB
+        Buffer_Size         5MB
         Retry_Limit         3
 
     # Output for Jobs Worker logs
@@ -121,7 +127,7 @@ data:
         Index               jobs-worker
         Type                _doc
         Suppress_Type_Name  On
-        Buffer_Size         2MB
+        Buffer_Size         5MB
         Retry_Limit         3
 
     # Output for Audit Service logs (non-AUDIT)
@@ -137,7 +143,7 @@ data:
         Index               audit-service
         Type                _doc
         Suppress_Type_Name  On
-        Buffer_Size         2MB
+        Buffer_Size         5MB
         Retry_Limit         3
 
   parsers.conf: |

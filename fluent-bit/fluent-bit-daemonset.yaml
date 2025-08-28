@@ -55,7 +55,7 @@ spec:
         effect: NoSchedule
       containers:
       - name: fluent-bit
-        image: fluent/fluent-bit:2.2.0
+        image: fluent/fluent-bit:4.0.8
         env:
           - name: K8S_NODE_NAME
             valueFrom:
@@ -100,6 +100,8 @@ spec:
           readOnly: true
         - name: config-volume
           mountPath: /fluent-bit/etc/
+        - name: fluent-bit-storage
+          mountPath: /var/log/flb-storage/
       terminationGracePeriodSeconds: 30
       volumes:
       - name: varlog
@@ -111,3 +113,7 @@ spec:
       - name: config-volume
         configMap:
           name: fluent-bit-config
+      - name: fluent-bit-storage
+        hostPath:
+          path: /var/log/flb-storage
+          type: DirectoryOrCreate
