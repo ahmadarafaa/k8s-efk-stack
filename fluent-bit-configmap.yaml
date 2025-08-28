@@ -1,0 +1,113 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluent-bit-config
+  namespace: logging
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+        Flush         10
+        Log_Level     info
+        Daemon        off
+        Parsers_File  parsers.conf
+        HTTP_Server   On
+        HTTP_Listen   0.0.0.0
+        HTTP_Port     2020
+
+    [INPUT]
+        Name              tail
+        Path              /var/log/containers/*_logging-test_*.log
+        Exclude_Path      /var/log/containers/fluent-bit*.log
+        Parser            cri
+        Tag               kube.*
+        Refresh_Interval  5
+        Mem_Buf_Limit     50MB
+        Skip_Long_Lines   On
+        Skip_Empty_Lines  On
+        Read_from_Head    true
+
+    # Add Kubernetes metadata
+    [FILTER]
+        Name                kubernetes
+        Match               kube.*
+        Kube_URL            https://kubernetes.default.svc:443
+        Kube_CA_File        /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        Kube_Token_File     /var/run/secrets/kubernetes.io/serviceaccount/token
+        Merge_Log           On
+        Keep_Log            Off
+        K8S-Logging.Parser  On
+        K8S-Logging.Exclude On
+
+    # Filter only logging-test namespace
+    [FILTER]
+        Name    grep
+        Match   kube.*
+        Regex   $kubernetes['namespace_name'] ^logging-test$
+
+    # Parse AUDIT log fields
+    [FILTER]
+        Name    parser
+        Match   kube.*
+        Key_Name log
+        Parser  audit_parser
+        Reserve_Data On
+        Preserve_Key On
+
+    # Add current timestamp and determine index
+    [FILTER]
+        Name    lua
+        Match   kube.*
+        Script  /fluent-bit/etc/index_router.lua
+        Call    determine_index
+
+    # Output to Elasticsearch
+    [OUTPUT]
+        Name                es
+        Match               kube.*
+        Host                ${ELASTICSEARCH_HOST}
+        Port                ${ELASTICSEARCH_PORT}
+        HTTP_User           ${ELASTICSEARCH_USERNAME}
+        HTTP_Passwd         ${ELASTICSEARCH_PASSWORD}
+        tls                 Off
+        tls.verify          Off
+        Logstash_Format     On
+        Logstash_Prefix_Key es_index
+        Type                _doc
+        Suppress_Type_Name  On
+        Buffer_Size         512KB
+        Retry_Limit         3
+
+  parsers.conf: |
+    [PARSER]
+        Name        cri
+        Format      regex
+        Regex       ^(?<time>[^ ]+) (?<stream>stdout|stderr) (?<logtag>[^ ]*) (?<log>.*)$
+        Time_Key    time
+        Time_Format %Y-%m-%dT%H:%M:%S.%L%z
+
+    [PARSER]
+        Name        audit_parser
+        Format      regex
+        Regex       \[AUDIT\]\s*user=(?<User>\w+),\s*action=(?<Action>\w+),\s*project=(?<Project>\w+),\s*status=(?<Status>\w+),\s*Field=(?<Field>\w+),\s*old_value=(?<Old_value>\w+),\s*new_value=(?<New_value>\w+)
+
+  index_router.lua: |
+    function determine_index(tag, timestamp, record)
+        -- Add timestamp
+        record["timestamp"] = os.date("!%Y-%m-%dT%H:%M:%S.000Z")
+        
+        -- Determine index based on log content
+        if record["log"] and string.find(record["log"], "%[AUDIT%]") then
+            record["es_index"] = "audit-trail"
+        else
+            -- Use deployment name from kubernetes labels or container name
+            if record["kubernetes"] and record["kubernetes"]["labels"] and record["kubernetes"]["labels"]["app"] then
+                record["es_index"] = record["kubernetes"]["labels"]["app"]
+            elseif record["kubernetes"] and record["kubernetes"]["container_name"] then
+                record["es_index"] = record["kubernetes"]["container_name"]
+            else
+                record["es_index"] = "generic-logs"
+            end
+        end
+        
+        return 1, timestamp, record
+    end
