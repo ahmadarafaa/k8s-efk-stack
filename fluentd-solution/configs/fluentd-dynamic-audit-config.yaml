@@ -46,7 +46,7 @@ data:
       @type record_transformer
       enable_ruby
       <record>
-        target_index ${record['kubernetes']['labels']['app'] || 'unmatched'}
+        target_index ${record['kubernetes']['labels']['app'] || 'generic'}
         @timestamp ${Time.now.strftime('%Y-%m-%dT%H:%M:%S.%3NZ')}
       </record>
     </filter>
@@ -134,7 +134,7 @@ data:
       scheme "#{ENV['ELASTICSEARCH_SCHEME']}"
       ssl_verify false
       
-      index_name unmatched-logs
+      index_name generic-logs
       suppress_type_name true
       
       <buffer>
