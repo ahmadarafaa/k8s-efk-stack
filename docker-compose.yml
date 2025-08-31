@@ -15,10 +15,37 @@ services:
     volumes:
       - esdata:/usr/share/elasticsearch/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "-u", "elastic:${ELASTIC_PASSWORD:-changeme}", "http://localhost:9200"]
+      test:
+        [
+          "CMD",
+          "curl",
+          "-f",
+          "-u",
+          "elastic:${ELASTIC_PASSWORD:-changeme}",
+          "http://localhost:9200",
+        ]
       interval: 10s
       timeout: 5s
       retries: 30
+
+  elasticsearch-setup:
+    image: curlimages/curl:8.4.0
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD:-changeme}
+      - KIBANA_PASSWORD=${KIBANA_PASSWORD:-changeme}
+    command: >
+      sh -c "
+        echo 'Setting up kibana_system user password...';
+        until curl -X PUT -u elastic:$$ELASTIC_PASSWORD 'http://elasticsearch:9200/_security/user/kibana_system/_password' -H 'Content-Type: application/json' -d '{\"password\": \"'$$KIBANA_PASSWORD'\"}'; do
+          echo 'Waiting for Elasticsearch to be ready...';
+          sleep 5;
+        done;
+        echo 'kibana_system password set successfully';
+      "
+    restart: "no"
 
   kibana:
     image: docker.elastic.co/kibana/kibana:8.13.4
@@ -32,6 +59,8 @@ services:
     depends_on:
       elasticsearch:
         condition: service_healthy
+      elasticsearch-setup:
+        condition: service_completed_successfully
 
 volumes:
   esdata: {}

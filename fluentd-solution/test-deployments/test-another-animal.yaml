@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: another-animal
+  namespace: logging-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: another-animal
+  template:
+    metadata:
+      labels:
+        app: another-animal
+    spec:
+      containers:
+      - name: test-container
+        image: busybox
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/sh"]
+        args: ["-c", "while true; do echo 'INFO: another-animal service running task #$((RANDOM % 500))'; sleep 4; echo 'DEBUG: another-animal health check passed'; sleep 3; echo '[AUDIT] user=animaluser,action=feed,project=ZooTest,status=success,Field=Animal,old_value=hungry,new_value=fed'; sleep 8; done"]
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "50m"
+          limits:
+            memory: "64Mi"
+            cpu: "100m"
