@@ -1,15 +1,18 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: fluentd-config
+  name: fluentd-all-except-system-config
   namespace: logging
 data:
   fluent.conf: |
-    # Source: Tail container logs from logging-test namespace
+    # All Namespaces Except System Configuration
+    # Collects logs from all namespaces except Kubernetes system namespaces
+    
+    # Source: All container logs except system namespaces
     <source>
       @type tail
-      path /var/log/containers/*_logging-test_*.log
-      exclude_path ["/var/log/containers/fluentd*.log"]
+      path /var/log/containers/*.log
+      exclude_path ["/var/log/containers/fluentd*.log", "/var/log/containers/*_kube-system_*.log", "/var/log/containers/*_kube-public_*.log", "/var/log/containers/*_kube-node-lease_*.log", "/var/log/containers/*_logging_*.log"]
       pos_file /var/log/fluentd-containers.log.pos
       tag kubernetes.*
       <parse>
@@ -32,27 +35,29 @@ data:
       skip_namespace_metadata false
     </filter>
 
-    # Filter only logging-test namespace
+    # Exclude system namespaces as safety filter
     <filter kubernetes.**>
       @type grep
-      <regexp>
+      <exclude>
         key $['kubernetes']['namespace_name']
-        pattern ^logging-test$
-      </regexp>
+        pattern ^(kube-system|kube-public|kube-node-lease|logging|local-path-storage)$
+      </exclude>
     </filter>
 
-
-    # Add target index field and timestamp
+    # Add comprehensive metadata for routing
     <filter kubernetes.**>
       @type record_transformer
       enable_ruby
       <record>
-        target_index ${record['kubernetes']['labels']['app'] || 'generic'}
+        cluster_namespace ${record['kubernetes']['namespace_name']}
+        app_name ${record['kubernetes']['labels']['app'] || record['kubernetes']['labels']['k8s-app'] || 'generic'}
+        full_index_name ${record['kubernetes']['namespace_name']}-${record['kubernetes']['labels']['app'] || record['kubernetes']['labels']['k8s-app'] || 'generic'}
+        log_level ${record['log'].match(/\b(DEBUG|INFO|WARN|ERROR|FATAL)\b/) ? record['log'].match(/\b(DEBUG|INFO|WARN|ERROR|FATAL)\b/)[0] : 'UNKNOWN'}
         @timestamp ${Time.now.strftime('%Y-%m-%dT%H:%M:%S.%3NZ')}
       </record>
     </filter>
 
-    # Parse AUDIT log message into structured fields
+    # Parse AUDIT logs from any namespace
     <filter kubernetes.**>
       @type parser
       key_name log
@@ -63,23 +68,28 @@ data:
       </parse>
     </filter>
 
-    # Route AUDIT logs first
+    # Route logs by type and namespace
     <match kubernetes.**>
       @type rewrite_tag_filter
       <rule>
         key log
         pattern /\[AUDIT\]/
-        tag audit.logs
+        tag audit.${record['cluster_namespace']}
       </rule>
       <rule>
-        key target_index
+        key log_level
+        pattern ERROR|FATAL
+        tag error.${record['full_index_name']}
+      </rule>
+      <rule>
+        key full_index_name
         pattern (.+)
         tag app.${1}
       </rule>
     </match>
 
-    # Output 1: AUDIT logs to audit-trail index
-    <match audit.logs>
+    # Output 1: All AUDIT logs to centralized index
+    <match audit.**>
       @type elasticsearch
       host "#{ENV['ELASTICSEARCH_HOST']}"
       port "#{ENV['ELASTICSEARCH_PORT']}"
@@ -88,20 +98,43 @@ data:
       scheme "#{ENV['ELASTICSEARCH_SCHEME']}"
       ssl_verify false
       
-      index_name audit-trail
+      index_name cluster-audit-trail
       suppress_type_name true
       
       <buffer>
         @type file
-        path /var/log/fluentd-buffers/audit
+        path /var/log/fluentd-buffers/cluster-audit
         flush_mode interval
-        flush_interval 10s
-        retry_max_times 3
+        flush_interval 5s
+        retry_max_times 5
+        chunk_limit_size 10MB
+      </buffer>
+    </match>
+
+    # Output 2: Error logs to dedicated error index
+    <match error.**>
+      @type elasticsearch
+      host "#{ENV['ELASTICSEARCH_HOST']}"
+      port "#{ENV['ELASTICSEARCH_PORT']}"
+      user "#{ENV['ELASTICSEARCH_USERNAME']}"
+      password "#{ENV['ELASTICSEARCH_PASSWORD']}"
+      scheme "#{ENV['ELASTICSEARCH_SCHEME']}"
+      ssl_verify false
+      
+      index_name cluster-errors
+      suppress_type_name true
+      
+      <buffer>
+        @type file
+        path /var/log/fluentd-buffers/errors
+        flush_mode interval
+        flush_interval 5s
+        retry_max_times 5
         chunk_limit_size 5MB
       </buffer>
     </match>
 
-    # Output 2: App-specific logs - use record field for dynamic index
+    # Output 3: Application logs by namespace-app
     <match app.**>
       @type elasticsearch
       host "#{ENV['ELASTICSEARCH_HOST']}"
@@ -111,11 +144,10 @@ data:
       scheme "#{ENV['ELASTICSEARCH_SCHEME']}"
       ssl_verify false
       
-      # Use the target_index field from the record
-      index_name ${target_index}
+      index_name ${tag[1]}
       suppress_type_name true
       
-      <buffer target_index>
+      <buffer tag>
         @type file
         path /var/log/fluentd-buffers/apps
         flush_mode interval  
@@ -125,12 +157,12 @@ data:
       </buffer>
     </match>
 
-    # Drop Fluentd internal logs completely
+    # Drop Fluentd internal logs
     <match fluent.**>
       @type null
     </match>
 
-    # Output 3: Fallback for any remaining logs
+    # Output 4: Fallback for any remaining logs
     <match **>
       @type elasticsearch
       host "#{ENV['ELASTICSEARCH_HOST']}"
@@ -140,14 +172,14 @@ data:
       scheme "#{ENV['ELASTICSEARCH_SCHEME']}"
       ssl_verify false
       
-      index_name generic-logs
+      index_name cluster-generic
       suppress_type_name true
       
       <buffer>
         @type file
         path /var/log/fluentd-buffers/fallback
         flush_mode interval
-        flush_interval 10s
+        flush_interval 15s
         retry_max_times 3
         chunk_limit_size 5MB
       </buffer>

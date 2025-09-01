@@ -1,0 +1,175 @@
+# Production namespace apps
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: production
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-service
+  namespace: production
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: web-service
+  template:
+    metadata:
+      labels:
+        app: web-service
+    spec:
+      containers:
+      - name: web-container
+        image: busybox
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/sh"]
+        args: ["-c", "while true; do echo 'INFO: production web-service handling request #$((RANDOM % 1000))'; sleep 5; echo '[AUDIT] user=webuser,action=login,project=ProdWeb,status=success,Field=Session,old_value=inactive,new_value=active'; sleep 10; done"]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: production
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+    spec:
+      containers:
+      - name: api-container
+        image: busybox
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/sh"]
+        args: ["-c", "while true; do echo 'INFO: production api-gateway processing API call'; sleep 3; echo 'DEBUG: api-gateway rate limit check passed'; sleep 7; done"]
+---
+# Staging namespace apps
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: staging
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-service
+  namespace: staging
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: web-service
+  template:
+    metadata:
+      labels:
+        app: web-service
+    spec:
+      containers:
+      - name: web-container
+        image: busybox
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/sh"]
+        args: ["-c", "while true; do echo 'INFO: staging web-service testing feature #$((RANDOM % 100))'; sleep 4; echo '[AUDIT] user=testuser,action=feature_test,project=StagingWeb,status=success,Field=Feature,old_value=disabled,new_value=enabled'; sleep 8; done"]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-service
+  namespace: staging
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payment-service
+  template:
+    metadata:
+      labels:
+        app: payment-service
+    spec:
+      containers:
+      - name: payment-container
+        image: busybox
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/sh"]
+        args: ["-c", "while true; do echo 'INFO: staging payment-service processing transaction'; sleep 6; echo 'WARN: payment-service connection timeout - retrying'; sleep 9; done"]
+---
+# Development namespace apps
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: development
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+  namespace: development
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth-service
+  template:
+    metadata:
+      labels:
+        app: auth-service
+    spec:
+      containers:
+      - name: auth-container
+        image: busybox
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/sh"]
+        args: ["-c", "while true; do echo 'DEBUG: development auth-service validating token'; sleep 2; echo '[AUDIT] user=devuser,action=authenticate,project=DevAuth,status=success,Field=Token,old_value=invalid,new_value=valid'; sleep 5; done"]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: database-service
+  namespace: development
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: database-service
+  template:
+    metadata:
+      labels:
+        app: database-service
+    spec:
+      containers:
+      - name: db-container
+        image: busybox
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/sh"]
+        args: ["-c", "while true; do echo 'INFO: development database-service query executed'; sleep 3; echo 'DEBUG: database-service connection pool status: healthy'; sleep 7; done"]
+---
+# App without label (should go to namespace-generic)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: unlabeled-app
+  namespace: development
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      service: unlabeled-app
+  template:
+    metadata:
+      labels:
+        service: unlabeled-app  # Note: no 'app' label
+    spec:
+      containers:
+      - name: unlabeled-container
+        image: busybox
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/sh"]
+        args: ["-c", "while true; do echo 'INFO: unlabeled service without app label'; sleep 10; done"]

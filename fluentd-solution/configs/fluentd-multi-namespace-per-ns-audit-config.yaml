@@ -5,10 +5,13 @@ metadata:
   namespace: logging
 data:
   fluent.conf: |
-    # Source: Tail container logs from logging-test namespace
+    # Multi-Namespace Configuration with NAMESPACE-SPECIFIC Audit Trails
+    # Each namespace gets its own {namespace}_audit-trail index
+    
+    # Source: Tail container logs from multiple namespaces
     <source>
       @type tail
-      path /var/log/containers/*_logging-test_*.log
+      path /var/log/containers/*_logging-test_*.log,/var/log/containers/*_production_*.log,/var/log/containers/*_staging_*.log,/var/log/containers/*_development_*.log
       exclude_path ["/var/log/containers/fluentd*.log"]
       pos_file /var/log/fluentd-containers.log.pos
       tag kubernetes.*
@@ -32,22 +35,22 @@ data:
       skip_namespace_metadata false
     </filter>
 
-    # Filter only logging-test namespace
+    # Filter: Allow multiple namespaces
     <filter kubernetes.**>
       @type grep
       <regexp>
         key $['kubernetes']['namespace_name']
-        pattern ^logging-test$
+        pattern ^(logging-test|production|staging|development)$
       </regexp>
     </filter>
 
-
-    # Add target index field and timestamp
+    # Add namespace and app information
     <filter kubernetes.**>
       @type record_transformer
       enable_ruby
       <record>
-        target_index ${record['kubernetes']['labels']['app'] || 'generic'}
+        namespace_app ${record['kubernetes']['namespace_name']}_${record['kubernetes']['labels']['app'] || 'generic'}
+        environment ${record['kubernetes']['namespace_name']}
         @timestamp ${Time.now.strftime('%Y-%m-%dT%H:%M:%S.%3NZ')}
       </record>
     </filter>
@@ -63,23 +66,23 @@ data:
       </parse>
     </filter>
 
-    # Route AUDIT logs first
+    # Route AUDIT logs and namespace-specific logs
     <match kubernetes.**>
       @type rewrite_tag_filter
       <rule>
         key log
         pattern /\[AUDIT\]/
-        tag audit.logs
+        tag audit.${record['environment']}
       </rule>
       <rule>
-        key target_index
+        key namespace_app
         pattern (.+)
         tag app.${1}
       </rule>
     </match>
 
-    # Output 1: AUDIT logs to audit-trail index
-    <match audit.logs>
+    # Output 1: NAMESPACE-SPECIFIC AUDIT logs
+    <match audit.**>
       @type elasticsearch
       host "#{ENV['ELASTICSEARCH_HOST']}"
       port "#{ENV['ELASTICSEARCH_PORT']}"
@@ -88,12 +91,12 @@ data:
       scheme "#{ENV['ELASTICSEARCH_SCHEME']}"
       ssl_verify false
       
-      index_name audit-trail
+      index_name ${environment}_audit-trail
       suppress_type_name true
       
-      <buffer>
+      <buffer environment>
         @type file
-        path /var/log/fluentd-buffers/audit
+        path /var/log/fluentd-buffers/namespace-audit
         flush_mode interval
         flush_interval 10s
         retry_max_times 3
@@ -101,7 +104,7 @@ data:
       </buffer>
     </match>
 
-    # Output 2: App-specific logs - use record field for dynamic index
+    # Output 2: App-specific logs with namespace_app format
     <match app.**>
       @type elasticsearch
       host "#{ENV['ELASTICSEARCH_HOST']}"
@@ -111,11 +114,10 @@ data:
       scheme "#{ENV['ELASTICSEARCH_SCHEME']}"
       ssl_verify false
       
-      # Use the target_index field from the record
-      index_name ${target_index}
+      index_name ${namespace_app}
       suppress_type_name true
       
-      <buffer target_index>
+      <buffer namespace_app>
         @type file
         path /var/log/fluentd-buffers/apps
         flush_mode interval  
@@ -125,7 +127,7 @@ data:
       </buffer>
     </match>
 
-    # Drop Fluentd internal logs completely
+    # Drop Fluentd internal logs
     <match fluent.**>
       @type null
     </match>
@@ -140,7 +142,7 @@ data:
       scheme "#{ENV['ELASTICSEARCH_SCHEME']}"
       ssl_verify false
       
-      index_name generic-logs
+      index_name multi-namespace-generic
       suppress_type_name true
       
       <buffer>

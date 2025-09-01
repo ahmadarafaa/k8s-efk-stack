@@ -1,11 +1,13 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: fluentd-config
+  name: fluentd-single-namespace-config
   namespace: logging
 data:
   fluent.conf: |
-    # Source: Tail container logs from logging-test namespace
+    # Single Namespace Configuration - Only logging-test namespace
+    
+    # Source: Tail container logs from logging-test namespace only
     <source>
       @type tail
       path /var/log/containers/*_logging-test_*.log
@@ -32,7 +34,7 @@ data:
       skip_namespace_metadata false
     </filter>
 
-    # Filter only logging-test namespace
+    # Verify namespace is logging-test
     <filter kubernetes.**>
       @type grep
       <regexp>
@@ -40,7 +42,6 @@ data:
         pattern ^logging-test$
       </regexp>
     </filter>
-
 
     # Add target index field and timestamp
     <filter kubernetes.**>
@@ -101,7 +102,7 @@ data:
       </buffer>
     </match>
 
-    # Output 2: App-specific logs - use record field for dynamic index
+    # Output 2: App-specific logs
     <match app.**>
       @type elasticsearch
       host "#{ENV['ELASTICSEARCH_HOST']}"
@@ -111,7 +112,6 @@ data:
       scheme "#{ENV['ELASTICSEARCH_SCHEME']}"
       ssl_verify false
       
-      # Use the target_index field from the record
       index_name ${target_index}
       suppress_type_name true
       
@@ -125,7 +125,7 @@ data:
       </buffer>
     </match>
 
-    # Drop Fluentd internal logs completely
+    # Drop Fluentd internal logs
     <match fluent.**>
       @type null
     </match>
