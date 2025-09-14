@@ -1,0 +1,229 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "efk-fluentd.fullname" . }}-config
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "efk-fluentd.labels" . | nindent 4 }}
+data:
+  fluent.conf: |
+    # {{ title .Values.logging.structuredEvents.strategy }} Structured Events Configuration
+    # Event Marker: {{ .Values.logging.structuredEvents.eventMarker }}
+    # Collect logs from: {{ join ", " .Values.logging.namespaces }}
+    
+    # Source: Tail container logs from configured namespaces
+    <source>
+      @type tail
+      path {{ include "efk-fluentd.namespacePaths" . }}
+      exclude_path ["/var/log/containers/fluentd*.log"]
+      pos_file /var/log/fluentd-containers.log.pos
+      tag kubernetes.*
+      <parse>
+        @type regexp
+        expression /^(?<time>.+) (?<stream>stdout|stderr) (?<logtag>[^ ]*) (?<log>.*)$/
+        time_format %Y-%m-%dT%H:%M:%S.%N%:z
+      </parse>
+    </source>
+
+    # Add Kubernetes metadata
+    <filter kubernetes.**>
+      @type kubernetes_metadata
+      @id filter_kube_metadata
+      kubernetes_url "#{ENV['KUBERNETES_URL']}"
+      verify_ssl "#{ENV['KUBERNETES_VERIFY_SSL']}"
+      ca_file "#{ENV['KUBERNETES_CA_FILE']}"
+      skip_labels false
+      skip_container_metadata false
+      skip_master_url false
+      skip_namespace_metadata false
+    </filter>
+
+    # Filter: Allow configured namespaces only
+    <filter kubernetes.**>
+      @type grep
+      <regexp>
+        key $['kubernetes']['namespace_name']
+        pattern {{ include "efk-fluentd.namespaceRegex" . }}
+      </regexp>
+    </filter>
+
+    # Add namespace and app information
+    <filter kubernetes.**>
+      @type record_transformer
+      enable_ruby
+      <record>
+        target_index ${record['kubernetes']['namespace_name']}-${record['kubernetes']['labels']['app'] || 'generic'}
+        environment ${record['kubernetes']['namespace_name']}
+        @timestamp ${Time.now.strftime('%Y-%m-%dT%H:%M:%S.%3NZ')}
+      </record>
+    </filter>
+
+    {{- if .Values.logging.structuredEvents.enabled }}
+    {{- if eq .Values.logging.structuredEvents.extraction.method "auto" }}
+    # Parse structured events - Auto-detection mode
+    <filter kubernetes.**>
+      @type record_transformer
+      enable_ruby
+      <record>
+        # Extract and parse key-value pairs from AUDIT logs
+        ${
+          if record['log'] && record['log'].match(/^{{ .Values.logging.structuredEvents.eventMarker }}\s+(.*)/)
+            kv_string = $1
+            # Parse key=value pairs separated by commas
+            kv_pairs = {}
+            kv_string.scan(/(\w+)=([^,]+)/) do |key, value|
+              kv_pairs[key] = value
+            end
+            kv_pairs
+          else
+            {}
+          end
+        }
+      </record>
+    </filter>
+    {{- else if eq .Values.logging.structuredEvents.extraction.method "manual" }}
+    # Parse structured events - Manual pattern mode
+    <filter kubernetes.**>
+      @type parser
+      key_name log
+      reserve_data true
+      <parse>
+        @type grok
+        grok_pattern {{ .Values.logging.structuredEvents.extraction.pattern }}
+      </parse>
+    </filter>
+    {{- end }}
+    {{- end }}
+
+    # Route logs based on content and target
+    <match kubernetes.**>
+      @type rewrite_tag_filter
+      {{- if .Values.logging.structuredEvents.enabled }}
+      <rule>
+        key log
+        pattern /{{ .Values.logging.structuredEvents.eventMarker }}/
+        {{- if eq .Values.logging.structuredEvents.strategy "per-namespace" }}
+        tag structured_events.${record['environment']}
+        {{- else }}
+        tag structured_events.logs
+        {{- end }}
+        invert false
+      </rule>
+      <rule>
+        key log
+        pattern /^(?!.*{{ .Values.logging.structuredEvents.eventMarker }})/
+        tag app.${record['target_index']}
+      </rule>
+      {{- else }}
+      <rule>
+        key target_index
+        pattern (.+)
+        tag app.${1}
+      </rule>
+      {{- end }}
+    </match>
+
+    {{- if .Values.logging.structuredEvents.enabled }}
+    # Output: Structured Events
+    <match structured_events.**>
+      @type elasticsearch
+      host "#{ENV['ELASTICSEARCH_HOST']}"
+      port "#{ENV['ELASTICSEARCH_PORT']}"
+      user "#{ENV['ELASTICSEARCH_USERNAME']}"
+      password "#{ENV['ELASTICSEARCH_PASSWORD']}"
+      scheme "#{ENV['ELASTICSEARCH_SCHEME']}"
+      ssl_verify {{ .Values.elasticsearch.ssl.verify }}
+      {{- if .Values.elasticsearch.ssl.caFile }}
+      ca_file /etc/ssl/elasticsearch/ca.crt
+      {{- end }}
+      request_timeout 30
+      reload_connections true
+      retry_limit 3
+      
+      {{- if eq .Values.logging.structuredEvents.strategy "per-namespace" }}
+      index_name ${environment}_{{ .Values.logging.structuredEvents.indexName }}
+      <buffer environment>
+        @type file
+        path /var/log/fluentd-buffers/namespace-structured-events
+        flush_mode interval
+        flush_interval 10s
+        retry_max_times 3
+        chunk_limit_size 5MB
+      </buffer>
+      {{- else }}
+      index_name {{ .Values.logging.structuredEvents.indexName }}
+      <buffer>
+        @type file
+        path /var/log/fluentd-buffers/centralized-structured-events
+        flush_mode interval
+        flush_interval 10s
+        retry_max_times 3
+        chunk_limit_size 5MB
+      </buffer>
+      {{- end }}
+      suppress_type_name true
+    </match>
+    {{- end }}
+
+    # Output: App-specific logs
+    <match app.**>
+      @type elasticsearch
+      host "#{ENV['ELASTICSEARCH_HOST']}"
+      port "#{ENV['ELASTICSEARCH_PORT']}"
+      user "#{ENV['ELASTICSEARCH_USERNAME']}"
+      password "#{ENV['ELASTICSEARCH_PASSWORD']}"
+      scheme "#{ENV['ELASTICSEARCH_SCHEME']}"
+      ssl_verify {{ .Values.elasticsearch.ssl.verify }}
+      {{- if .Values.elasticsearch.ssl.caFile }}
+      ca_file /etc/ssl/elasticsearch/ca.crt
+      {{- end }}
+      request_timeout 30
+      reload_connections true
+      retry_limit 3
+      
+      index_name ${target_index}
+      suppress_type_name true
+      
+      <buffer target_index>
+        @type file
+        path /var/log/fluentd-buffers/apps
+        flush_mode interval
+        flush_interval 10s
+        retry_max_times 3
+        chunk_limit_size 5MB
+      </buffer>
+    </match>
+
+    # Drop Fluentd internal logs
+    <match fluent.**>
+      @type null
+    </match>
+
+    # Output: Fallback for any remaining logs
+    <match **>
+      @type elasticsearch
+      host "#{ENV['ELASTICSEARCH_HOST']}"
+      port "#{ENV['ELASTICSEARCH_PORT']}"
+      user "#{ENV['ELASTICSEARCH_USERNAME']}"
+      password "#{ENV['ELASTICSEARCH_PASSWORD']}"
+      scheme "#{ENV['ELASTICSEARCH_SCHEME']}"
+      ssl_verify {{ .Values.elasticsearch.ssl.verify }}
+      {{- if .Values.elasticsearch.ssl.caFile }}
+      ca_file /etc/ssl/elasticsearch/ca.crt
+      {{- end }}
+      request_timeout 30
+      reload_connections true
+      retry_limit 3
+      
+      index_name multi-namespace-generic
+      suppress_type_name true
+      
+      <buffer>
+        @type file
+        path /var/log/fluentd-buffers/fallback
+        flush_mode interval
+        flush_interval 10s
+        retry_max_times 3
+        chunk_limit_size 5MB
+      </buffer>
+    </match>

@@ -1,0 +1,100 @@
+# =============================================================================
+# DEPLOYMENT CONFIGURATION
+# =============================================================================
+# Namespace where all Fluentd components will be deployed
+# NOTE: This controls where Fluentd DaemonSet, RBAC, ConfigMap, and Secret are created
+# It does NOT affect which namespaces Fluentd collects logs from (see logging.namespaces)
+namespace: mon
+
+# =============================================================================
+# FLUENTD CONFIGURATION  
+# =============================================================================
+fluentd:
+  # Elasticsearch version - determines Fluentd image compatibility
+  elasticsearchVersion: "8" # Options: "7", "8"
+
+# =============================================================================
+# ELASTICSEARCH CONFIGURATION
+# =============================================================================
+elasticsearch:
+  # Connection details
+  host: "192.168.1.10"  # Laptop IP where Elasticsearch container is running
+  port: 9200
+  scheme: http        # Options: http, https
+  
+  # Authentication
+  auth:
+    username: elastic
+    password: changeme
+    # Optional: Use existing Kubernetes secret instead of hardcoded credentials
+    existingSecret: ""  # Example: my-elasticsearch-secret
+  
+  # SSL/TLS Configuration  
+  ssl:
+    verify: false      # Set to true in production with proper certificates
+    # Optional: CA certificate file path (if verify: true)
+    caFile: ""         # Example: /etc/ssl/elasticsearch/ca.crt
+
+# =============================================================================
+# LOGGING CONFIGURATION
+# =============================================================================
+logging:
+  # Target namespaces to collect logs from
+  namespaces:
+    - production
+    - staging
+    - development
+    # Add more namespaces as needed: - my-app-namespace
+  
+  # Structured Events Configuration
+  # Use this for: audit trails, business events, alerts, metrics, compliance logs
+  structuredEvents:
+    # Enable/disable structured event processing
+    enabled: true
+    
+    # Event marker - keyword that identifies structured events in your logs
+    # Fluentd will only process logs containing this marker
+    # Examples:
+    # - "EVENT": Generic structured events  
+    # - "AUDIT": Compliance/audit trail events
+    # - "BUSINESS": Business logic events (orders, payments)
+    # - "SECURITY": Security events (login attempts, access violations)
+    # - "ALERT": System alerts and notifications
+    # - "METRIC": Performance metrics
+    eventMarker: "AUDIT"
+    
+    # Deployment strategy
+    # - centralized: All structured events go to one index (recommended)
+    # - per-namespace: Separate index per namespace (for multi-tenant)
+    strategy: centralized
+    
+    # Index name where structured events will be stored in Elasticsearch
+    indexName: "validated-events"
+    # Alternative examples:
+    # indexName: "audit-events"
+    # indexName: "business-events"
+    
+    # Field extraction method
+    extraction:
+      method: auto  # Automatically detects JSON and key-value formats (recommended)
+      # method: manual   # Advanced: requires custom regex pattern
+      # method: disabled # No field extraction, store raw logs
+      
+    
+    # Validation (disabled by default for simplicity)
+    validation:
+      enabled: true
+      requiredFields: ["user", "action"]
+      allowedActions: ["login", "logout", "authenticate", "feature_test"]
+      # When enabled, uncomment and configure:
+      # requiredFields: ["user", "action"]  # Fields that must be present
+      # allowedActions: ["create", "read", "update", "delete"]  # Restrict values
+
+# =============================================================================
+# USAGE EXAMPLES
+# =============================================================================
+# JSON Format (Recommended):
+# {"level": "EVENT", "user": "alice", "action": "login", "status": "success"}
+#
+# Key-Value Format:  
+# EVENT user=alice action=login status=success

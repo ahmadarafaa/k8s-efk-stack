@@ -1,0 +1,119 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "efk-fluentd.fullname" . }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "efk-fluentd.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "efk-fluentd.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "efk-fluentd.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "efk-fluentd.serviceAccountName" . }}
+      securityContext:
+        runAsNonRoot: false
+      containers:
+      - name: fluentd
+        image: {{ include "efk-fluentd.fluentdImage" . }}
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          privileged: true
+        env:
+        - name: FLUENT_CONF
+          value: "fluent.conf"
+        - name: FLUENTD_SYSTEMD_CONF
+          value: "disable"
+        - name: FLUENTD_PROMETHEUS_CONF
+          value: "disable"
+        - name: K8S_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        # Elasticsearch connection
+        - name: ELASTICSEARCH_HOST
+          value: "{{ .Values.elasticsearch.host }}"
+        - name: ELASTICSEARCH_PORT
+          value: "{{ .Values.elasticsearch.port }}"
+        - name: ELASTICSEARCH_SCHEME
+          value: "{{ .Values.elasticsearch.scheme }}"
+        - name: ELASTICSEARCH_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "efk-fluentd.secretName" . }}
+              key: username
+        - name: ELASTICSEARCH_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "efk-fluentd.secretName" . }}
+              key: password
+        # SSL configuration
+        - name: ELASTICSEARCH_SSL_VERIFY
+          value: "{{ .Values.elasticsearch.ssl.verify }}"
+        - name: ELASTICSEARCH_TIMEOUT
+          value: "30"
+        # Kubernetes API
+        - name: KUBERNETES_URL
+          value: "https://kubernetes.default.svc:443"
+        - name: KUBERNETES_VERIFY_SSL
+          value: "true"
+        - name: KUBERNETES_CA_FILE
+          value: "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+        resources:
+          limits:
+            memory: 512Mi
+            cpu: 100m
+          requests:
+            memory: 200Mi
+            cpu: 100m
+        volumeMounts:
+        - name: fluentd-config
+          mountPath: /fluentd/etc
+          readOnly: true
+        - name: varlog
+          mountPath: /var/log
+        - name: varlibdockercontainers
+          mountPath: /var/lib/docker/containers
+          readOnly: true
+        - name: fluentd-buffer
+          mountPath: /var/log/fluentd-buffers
+        {{- if .Values.elasticsearch.ssl.caFile }}
+        - name: elasticsearch-ca
+          mountPath: /etc/ssl/elasticsearch/ca.crt
+          subPath: ca.crt
+          readOnly: true
+        {{- end }}
+      terminationGracePeriodSeconds: 30
+      tolerations:
+      - key: node-role.kubernetes.io/control-plane
+        operator: Exists
+        effect: NoSchedule
+      - key: node-role.kubernetes.io/master
+        operator: Exists
+        effect: NoSchedule
+      volumes:
+      - name: fluentd-config
+        configMap:
+          name: {{ include "efk-fluentd.fullname" . }}-config
+      - name: varlog
+        hostPath:
+          path: /var/log
+      - name: varlibdockercontainers
+        hostPath:
+          path: /var/lib/docker/containers
+      - name: fluentd-buffer
+        hostPath:
+          path: /var/log/fluentd-buffers
+          type: DirectoryOrCreate
+      {{- if .Values.elasticsearch.ssl.caFile }}
+      - name: elasticsearch-ca
+        secret:
+          secretName: {{ include "efk-fluentd.secretName" . }}
+          items:
+          - key: ca.crt
+            path: ca.crt
+      {{- end }}

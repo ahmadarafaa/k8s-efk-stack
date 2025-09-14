@@ -1,0 +1,18 @@
+apiVersion: v2
+name: efk-fluentd
+description: A Helm chart for Fluentd log collection with dynamic indexing and audit trail support
+type: application
+version: 0.1.0
+appVersion: "1.19.0"
+keywords:
+  - logging
+  - fluentd
+  - elasticsearch
+  - kubernetes
+  - audit
+home: https://github.com/fluent/fluentd
+sources:
+  - https://github.com/fluent/fluentd-kubernetes-daemonset
+maintainers:
+  - name: EFK Stack Team
+    email: ops@company.com

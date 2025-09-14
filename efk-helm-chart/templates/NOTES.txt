@@ -1,0 +1,37 @@
+1. Get the Fluentd pod status:
+   kubectl get pods -l "app.kubernetes.io/name={{ include "efk-fluentd.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -n {{ .Values.namespace }}
+
+2. Check Fluentd logs:
+   kubectl logs -l "app.kubernetes.io/name={{ include "efk-fluentd.name" . }}" -n {{ .Values.namespace }}
+
+3. Configuration:
+   - Collecting logs from namespaces: {{ join ", " .Values.logging.namespaces }}
+   - Elasticsearch endpoint: {{ .Values.elasticsearch.scheme }}://{{ .Values.elasticsearch.host }}:{{ .Values.elasticsearch.port }}
+   {{- if .Values.logging.structuredEvents.enabled }}
+   - Structured events: {{ .Values.logging.structuredEvents.eventMarker }} ({{ .Values.logging.structuredEvents.strategy }})
+   - Events index: {{ .Values.logging.structuredEvents.indexName }}
+   {{- end }}
+
+4. Expected indices in Elasticsearch:
+   {{- range .Values.logging.namespaces }}
+   - {{ . }}-<app-name> (application logs)
+   {{- end }}
+   {{- if .Values.logging.structuredEvents.enabled }}
+   {{- if eq .Values.logging.structuredEvents.strategy "per-namespace" }}
+   {{- range .Values.logging.namespaces }}
+   - {{ . }}_{{ $.Values.logging.structuredEvents.indexName }} (structured events)
+   {{- end }}
+   {{- else }}
+   - {{ .Values.logging.structuredEvents.indexName }} (all structured events)
+   {{- end }}
+   {{- end }}
+
+5. Application Integration:
+   JSON Format: {"level": "{{ .Values.logging.structuredEvents.eventMarker }}", "user": "alice", "action": "login"}
+   Key-Value: {{ .Values.logging.structuredEvents.eventMarker }} user=alice action=login
+
+6. To modify configuration:
+   helm upgrade {{ .Release.Name }} . --set logging.namespaces="{new-namespace}"
+
+7. To change event marker:
+   helm upgrade {{ .Release.Name }} . --set logging.structuredEvents.eventMarker=AUDIT
