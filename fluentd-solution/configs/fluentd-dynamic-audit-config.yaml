@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: fluentd-config
+  name: fluentd-dynamic-audit-config
   namespace: logging
 data:
   fluent.conf: |
