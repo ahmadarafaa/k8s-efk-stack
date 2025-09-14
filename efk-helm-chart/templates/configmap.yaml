@@ -61,35 +61,83 @@ data:
     {{- if .Values.logging.structuredEvents.enabled }}
     {{- if eq .Values.logging.structuredEvents.extraction.method "auto" }}
     # Parse structured events - Auto-detection mode
+    # Apply parsing filters only to logs matching the event marker
     <filter kubernetes.**>
+      @type rewrite_tag_filter
+      <rule>
+        key log
+        pattern /^{{ .Values.logging.structuredEvents.eventMarker }}\s+/
+        tag audit.parse.${tag}
+      </rule>
+      <rule>
+        key log
+        pattern /.*/
+        tag ${tag}
+      </rule>
+    </filter>
+
+    # Parse key-value data from AUDIT logs only
+    <filter audit.parse.**>
+      @type parser
+      key_name log
+      reserve_data true
+      emit_invalid_record_to_error false
+      <parse>
+        @type regexp
+        expression /^{{ .Values.logging.structuredEvents.eventMarker }}\s+(?<kv_data>.*)$/
+      </parse>
+    </filter>
+
+    # Add event marker and original log for AUDIT logs
+    <filter audit.parse.**>
       @type record_transformer
-      enable_ruby
       <record>
-        # Extract and parse key-value pairs from AUDIT logs
-        ${
-          if record['log'] && record['log'].match(/^{{ .Values.logging.structuredEvents.eventMarker }}\s+(.*)/)
-            kv_string = $1
-            # Parse key=value pairs separated by commas
-            kv_pairs = {}
-            kv_string.scan(/(\w+)=([^,]+)/) do |key, value|
-              kv_pairs[key] = value
-            end
-            kv_pairs
-          else
-            {}
-          end
-        }
+        event_type {{ .Values.logging.structuredEvents.eventMarker }}
+        original_log ${record['log']}
       </record>
     </filter>
+
+    # Parse key-value pairs using configurable delimiters
+    <filter audit.parse.**>
+      @type parser
+      key_name kv_data
+      reserve_data true
+      emit_invalid_record_to_error false
+      remove_key_name_field true
+      <parse>
+        @type kv
+        delimiter {{ .Values.logging.structuredEvents.extraction.keyValue.delimiter }}
+        kv_char {{ .Values.logging.structuredEvents.extraction.keyValue.separator }}
+      </parse>
+    </filter>
+
+    # Convert back to kubernetes tag for routing
+    <match audit.parse.**>
+      @type rewrite_tag_filter
+      <rule>
+        key log
+        pattern /.*/
+        tag ${tag_parts[2]}
+      </rule>
+    </match>
     {{- else if eq .Values.logging.structuredEvents.extraction.method "manual" }}
     # Parse structured events - Manual pattern mode
+    <filter kubernetes.**>
+      @type record_transformer
+      <record>
+        event_type {{ .Values.logging.structuredEvents.eventMarker }}
+        original_log ${record['log']}
+      </record>
+    </filter>
+
     <filter kubernetes.**>
       @type parser
       key_name log
       reserve_data true
+      emit_invalid_record_to_error false
       <parse>
-        @type grok
-        grok_pattern {{ .Values.logging.structuredEvents.extraction.pattern }}
+        @type regexp
+        expression {{ .Values.logging.structuredEvents.extraction.manual.pattern }}
       </parse>
     </filter>
     {{- end }}

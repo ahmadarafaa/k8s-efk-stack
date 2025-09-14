@@ -18,7 +18,7 @@ fluentd:
 # =============================================================================
 elasticsearch:
   # Connection details
-  host: "192.168.1.10"  # Laptop IP where Elasticsearch container is running
+  host: "10.100.105.29"  # Laptop IP where Elasticsearch container is running
   port: 9200
   scheme: http        # Options: http, https
   
@@ -79,6 +79,17 @@ logging:
       method: auto  # Automatically detects JSON and key-value formats (recommended)
       # method: manual   # Advanced: requires custom regex pattern
       # method: disabled # No field extraction, store raw logs
+
+      # Key-Value parsing configuration (for method: auto)
+      keyValue:
+        delimiter: ","      # Separator between key=value pairs
+        separator: "="      # Separator within key=value pairs
+        # Example: "user=alice,action=login,status=success"
+
+      # Manual parsing configuration (for method: manual)
+      manual:
+        # Custom regex pattern with named capture groups
+        pattern: ""  # Example: "user=(?<user>[^,]+),action=(?<action>[^,]+)"
       
     
     # Validation (disabled by default for simplicity)
