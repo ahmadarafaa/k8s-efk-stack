@@ -1,12 +1,12 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: fluentd-multi-namespace-per-ns-audit-config
+  name: fluentd-multi-namespace-per-ns-alert-config
   namespace: logging
 data:
   fluent.conf: |
     # Multi-Namespace Configuration with NAMESPACE-SPECIFIC Audit Trails
-    # Each namespace gets its own {namespace}_audit-trail index
+    # Each namespace gets its own alerts_{namespace} index
     
     # Source: Tail container logs from multiple namespaces
     <source>
@@ -55,24 +55,24 @@ data:
       </record>
     </filter>
 
-    # Parse AUDIT log message into structured fields
+    # Parse ALERT log message into structured fields
     <filter kubernetes.**>
       @type parser
       key_name log
       reserve_data true
       <parse>
         @type grok
-        grok_pattern \[AUDIT\]\s*user=(?<User>[^,]+),\s*action=(?<Action>[^,]+),\s*project=(?<Project>[^,]+),\s*status=(?<Status>[^,]+),\s*Field=(?<Field>[^,]+),\s*old_value=(?<Old_value>[^,]+),\s*new_value=(?<New_value>.+)
+        grok_pattern ALERT\s*user=(?<User>[^,]+),\s*action=(?<Action>[^,]+),\s*project=(?<Project>[^,]+),\s*status=(?<Status>[^,]+),\s*Field=(?<Field>[^,]+),\s*old_value=(?<Old_value>[^,]+),\s*new_value=(?<New_value>.+)
       </parse>
     </filter>
 
-    # Route AUDIT logs and namespace-specific logs
+    # Route ALERT logs and namespace-specific logs
     <match kubernetes.**>
       @type rewrite_tag_filter
       <rule>
         key log
-        pattern /\[AUDIT\]/
-        tag audit.${record['environment']}
+        pattern /ALERT/
+        tag alert.${record['environment']}
       </rule>
       <rule>
         key namespace_app
@@ -81,8 +81,8 @@ data:
       </rule>
     </match>
 
-    # Output 1: NAMESPACE-SPECIFIC AUDIT logs
-    <match audit.**>
+    # Output 1: NAMESPACE-SPECIFIC ALERT logs
+    <match alert.**>
       @type elasticsearch
       host "#{ENV['ELASTICSEARCH_HOST']}"
       port "#{ENV['ELASTICSEARCH_PORT']}"
@@ -91,12 +91,12 @@ data:
       scheme "#{ENV['ELASTICSEARCH_SCHEME']}"
       ssl_verify false
       
-      index_name ${environment}_audit-trail
+      index_name alerts_${environment}
       suppress_type_name true
       
       <buffer environment>
         @type file
-        path /var/log/fluentd-buffers/namespace-audit
+        path /var/log/fluentd-buffers/namespace-alert
         flush_mode interval
         flush_interval 10s
         retry_max_times 3

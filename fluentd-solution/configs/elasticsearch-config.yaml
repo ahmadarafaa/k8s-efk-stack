@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: elasticsearch-config
+  namespace: logging
+data:
+  elasticsearch-host: "10.100.105.29"
+  elasticsearch-port: "9200"
+  elasticsearch-username: "elastic"
+  elasticsearch-scheme: "http"
+

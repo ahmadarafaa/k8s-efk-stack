@@ -37,8 +37,9 @@ data:
     # Add timestamp
     <filter kubernetes.**>
       @type record_transformer
+      enable_ruby
       <record>
-        @timestamp ${time.strftime('%Y-%m-%dT%H:%M:%S.%3NZ')}
+        @timestamp ${Time.now.strftime('%Y-%m-%dT%H:%M:%S.%3NZ')}
       </record>
     </filter>
 

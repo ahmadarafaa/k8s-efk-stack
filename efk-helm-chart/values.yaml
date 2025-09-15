@@ -18,7 +18,7 @@ fluentd:
 # =============================================================================
 elasticsearch:
   # Connection details
-  host: "10.100.105.29"  # Laptop IP where Elasticsearch container is running
+  host: "192.168.1.10"  # Laptop IP where Elasticsearch container is running
   port: 9200
   scheme: http        # Options: http, https
   

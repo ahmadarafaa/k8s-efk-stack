@@ -8,10 +8,10 @@ data:
     # Environment-Based Configuration
     # Routes logs based on environment prefixes (prod-, dev-, test-, staging-)
     
-    # Source: Environment-prefixed namespace logs
+    # Source: Environment namespace logs
     <source>
       @type tail
-      path /var/log/containers/*_prod-*_*.log,/var/log/containers/*_dev-*_*.log,/var/log/containers/*_test-*_*.log,/var/log/containers/*_staging-*_*.log
+      path /var/log/containers/*_production_*.log,/var/log/containers/*_development_*.log,/var/log/containers/*_logging-test_*.log,/var/log/containers/*_staging_*.log
       exclude_path ["/var/log/containers/fluentd*.log"]
       pos_file /var/log/fluentd-containers.log.pos
       tag kubernetes.*
@@ -35,12 +35,12 @@ data:
       skip_namespace_metadata false
     </filter>
 
-    # Filter: Environment-prefixed namespaces only
+    # Filter: Environment namespaces only
     <filter kubernetes.**>
       @type grep
       <regexp>
         key $['kubernetes']['namespace_name']
-        pattern ^(prod-|dev-|test-|staging-)
+        pattern ^(production|development|logging-test|staging)$
       </regexp>
     </filter>
 
@@ -49,12 +49,12 @@ data:
       @type record_transformer
       enable_ruby
       <record>
-        environment ${record['kubernetes']['namespace_name'].split('-')[0] rescue 'unknown'}
-        service_name ${record['kubernetes']['namespace_name'].split('-', 2)[1] rescue 'unknown'}
+        environment ${record['kubernetes']['namespace_name'] == 'production' ? 'prod' : (record['kubernetes']['namespace_name'] == 'development' ? 'dev' : (record['kubernetes']['namespace_name'] == 'logging-test' ? 'test' : record['kubernetes']['namespace_name']))}
+        service_name ${record['kubernetes']['namespace_name']}
         app_name ${record['kubernetes']['labels']['app'] || 'generic'}
         version ${record['kubernetes']['labels']['version'] || 'unknown'}
         release ${record['kubernetes']['labels']['release'] || 'unknown'}
-        full_service_name ${record['kubernetes']['namespace_name'].split('-', 2)[1] rescue 'unknown'}-${record['kubernetes']['labels']['app'] || 'generic'}
+        full_service_name ${record['kubernetes']['namespace_name']}-${record['kubernetes']['labels']['app'] || 'generic'}
         log_severity ${record['log'].match(/\b(TRACE|DEBUG|INFO|WARN|WARNING|ERROR|FATAL|CRITICAL)\b/i) ? record['log'].match(/\b(TRACE|DEBUG|INFO|WARN|WARNING|ERROR|FATAL|CRITICAL)\b/i)[0].upcase : 'INFO'}
         @timestamp ${Time.now.strftime('%Y-%m-%dT%H:%M:%S.%3NZ')}
       </record>
@@ -71,7 +71,7 @@ data:
       </parse>
     </filter>
 
-    # Parse AUDIT logs for compliance
+    # Parse ALERT logs for compliance
     <filter kubernetes.**>
       @type parser
       key_name log
@@ -79,7 +79,7 @@ data:
       emit_invalid_record_to_error false
       <parse>
         @type grok
-        grok_pattern \[AUDIT\]\s*user=(?<User>[^,]+),\s*action=(?<Action>[^,]+),\s*project=(?<Project>[^,]+),\s*status=(?<Status>[^,]+),\s*Field=(?<Field>[^,]+),\s*old_value=(?<Old_value>[^,]+),\s*new_value=(?<New_value>.+)
+        grok_pattern \[ALERT\]\s*user=(?<User>[^,]+),\s*action=(?<Action>[^,]+),\s*project=(?<Project>[^,]+),\s*status=(?<Status>[^,]+),\s*Field=(?<Field>[^,]+),\s*old_value=(?<Old_value>[^,]+),\s*new_value=(?<New_value>.+)
       </parse>
     </filter>
 
@@ -88,38 +88,38 @@ data:
       @type rewrite_tag_filter
       <rule>
         key log
-        pattern /\[AUDIT\]/
-        tag audit.${record['environment']}.${record['service_name']}
+        pattern /\[ALERT\]/
+        tag alert.logs
       </rule>
       <rule>
         key log_severity
         pattern ERROR|FATAL|CRITICAL
-        tag error.${record['environment']}.${record['full_service_name']}
+        tag error.logs
       </rule>
       <rule>
         key environment
         pattern prod
-        tag prod.${record['full_service_name']}
+        tag prod.logs
       </rule>
       <rule>
         key environment
         pattern dev
-        tag dev.${record['full_service_name']}
+        tag dev.logs
       </rule>
       <rule>
         key environment
         pattern test
-        tag test.${record['full_service_name']}
+        tag test.logs
       </rule>
       <rule>
         key environment
         pattern staging
-        tag staging.${record['full_service_name']}
+        tag staging.logs
       </rule>
     </match>
 
-    # Output 1: Production AUDIT logs (high retention, secure)
-    <match audit.prod.**>
+    # Output 1: ALERT logs (dynamic indexing by environment and service)
+    <match alert.logs>
       @type elasticsearch
       host "#{ENV['ELASTICSEARCH_HOST']}"
       port "#{ENV['ELASTICSEARCH_PORT']}"
@@ -128,12 +128,12 @@ data:
       scheme "#{ENV['ELASTICSEARCH_SCHEME']}"
       ssl_verify false
       
-      index_name prod-audit-${tag[2]}-%Y-%m
+      index_name ${service_name}_${app_name}-alert-%Y-%m
       suppress_type_name true
       
-      <buffer tag,time>
+      <buffer tag,service_name,app_name,time>
         @type file
-        path /var/log/fluentd-buffers/prod-audit
+        path /var/log/fluentd-buffers/alert
         timekey 86400  # Daily indices
         timekey_wait 300
         flush_mode interval
@@ -143,8 +143,8 @@ data:
       </buffer>
     </match>
 
-    # Output 2: Non-production AUDIT logs
-    <match audit.**>
+    # Output 2: Error logs (dynamic indexing by environment and service)
+    <match error.logs>
       @type elasticsearch
       host "#{ENV['ELASTICSEARCH_HOST']}"
       port "#{ENV['ELASTICSEARCH_PORT']}"
@@ -153,43 +153,21 @@ data:
       scheme "#{ENV['ELASTICSEARCH_SCHEME']}"
       ssl_verify false
       
-      index_name ${tag[1]}-audit-${tag[2]}
+      index_name ${service_name}_${app_name}-errors
       suppress_type_name true
       
-      <buffer tag>
+      <buffer tag,service_name,app_name>
         @type file
-        path /var/log/fluentd-buffers/env-audit
+        path /var/log/fluentd-buffers/errors
         flush_mode interval
-        flush_interval 60s
-        retry_max_times 5
-        chunk_limit_size 5MB
-      </buffer>
-    </match>
-
-    # Output 3: Production error logs (immediate alerting)
-    <match error.prod.**>
-      @type elasticsearch
-      host "#{ENV['ELASTICSEARCH_HOST']}"
-      port "#{ENV['ELASTICSEARCH_PORT']}"
-      user "#{ENV['ELASTICSEARCH_USERNAME']}"
-      password "#{ENV['ELASTICSEARCH_PASSWORD']}"
-      scheme "#{ENV['ELASTICSEARCH_SCHEME']}"
-      ssl_verify false
-      
-      index_name prod-errors
-      suppress_type_name true
-      
-      <buffer>
-        @type file
-        path /var/log/fluentd-buffers/prod-errors
-        flush_mode immediate
+        flush_interval 30s
         retry_max_times 10
         chunk_limit_size 5MB
       </buffer>
     </match>
 
-    # Output 4: Non-production error logs
-    <match error.**>
+    # Output 3: Production application logs (optimized performance)
+    <match prod.logs>
       @type elasticsearch
       host "#{ENV['ELASTICSEARCH_HOST']}"
       port "#{ENV['ELASTICSEARCH_PORT']}"
@@ -198,33 +176,10 @@ data:
       scheme "#{ENV['ELASTICSEARCH_SCHEME']}"
       ssl_verify false
       
-      index_name ${tag[1]}-errors
+      index_name ${service_name}_${app_name}
       suppress_type_name true
       
-      <buffer tag>
-        @type file
-        path /var/log/fluentd-buffers/env-errors
-        flush_mode interval
-        flush_interval 30s
-        retry_max_times 5
-        chunk_limit_size 5MB
-      </buffer>
-    </match>
-
-    # Output 5: Production application logs (optimized performance)
-    <match prod.**>
-      @type elasticsearch
-      host "#{ENV['ELASTICSEARCH_HOST']}"
-      port "#{ENV['ELASTICSEARCH_PORT']}"
-      user "#{ENV['ELASTICSEARCH_USERNAME']}"
-      password "#{ENV['ELASTICSEARCH_PASSWORD']}"
-      scheme "#{ENV['ELASTICSEARCH_SCHEME']}"
-      ssl_verify false
-      
-      index_name prod-${tag[1]}-%Y-%m-%d
-      suppress_type_name true
-      
-      <buffer tag,time>
+      <buffer tag,service_name,app_name>
         @type file
         path /var/log/fluentd-buffers/prod-apps
         timekey 86400  # Daily indices
@@ -237,8 +192,8 @@ data:
       </buffer>
     </match>
 
-    # Output 6: Development/Test logs (lower retention)
-    <match dev.**, test.**>
+    # Output 4: Development/Test logs (lower retention)
+    <match dev.logs, test.logs>
       @type elasticsearch
       host "#{ENV['ELASTICSEARCH_HOST']}"
       port "#{ENV['ELASTICSEARCH_PORT']}"
@@ -247,10 +202,10 @@ data:
       scheme "#{ENV['ELASTICSEARCH_SCHEME']}"
       ssl_verify false
       
-      index_name ${tag[0]}-${tag[1]}
+      index_name ${service_name}_${app_name}
       suppress_type_name true
       
-      <buffer tag>
+      <buffer tag,service_name,app_name>
         @type file
         path /var/log/fluentd-buffers/dev-test-apps
         flush_mode interval
@@ -260,8 +215,8 @@ data:
       </buffer>
     </match>
 
-    # Output 7: Staging logs (production-like)
-    <match staging.**>
+    # Output 5: Staging logs (production-like)
+    <match staging.logs>
       @type elasticsearch
       host "#{ENV['ELASTICSEARCH_HOST']}"
       port "#{ENV['ELASTICSEARCH_PORT']}"
@@ -270,10 +225,10 @@ data:
       scheme "#{ENV['ELASTICSEARCH_SCHEME']}"
       ssl_verify false
       
-      index_name staging-${tag[1]}
+      index_name ${service_name}_${app_name}
       suppress_type_name true
       
-      <buffer tag>
+      <buffer tag,service_name,app_name>
         @type file
         path /var/log/fluentd-buffers/staging-apps
         flush_mode interval
@@ -288,7 +243,7 @@ data:
       @type null
     </match>
 
-    # Output 8: Fallback for any unmatched logs
+    # Output 6: Fallback for any unmatched logs
     <match **>
       @type elasticsearch
       host "#{ENV['ELASTICSEARCH_HOST']}"

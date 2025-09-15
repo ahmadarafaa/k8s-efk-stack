@@ -18,7 +18,7 @@ spec:
         image: busybox
         imagePullPolicy: IfNotPresent
         command: ["/bin/sh"]
-        args: ["-c", "while true; do echo 'INFO: another-animal service running task #$((RANDOM % 500))'; sleep 4; echo 'DEBUG: another-animal health check passed'; sleep 3; echo 'AUDIT user=animaluser,action=feed,project=ZooTest,status=success,Field=Animal,old_value=hungry,new_value=fed'; sleep 8; done"]
+        args: ["-c", "while true; do echo 'INFO: another-animal service running task #$((RANDOM % 500))'; sleep 4; echo 'DEBUG: another-animal health check passed'; sleep 3; echo 'ALERT user=animaluser,action=feed,project=ZooTest,status=success,Field=Animal,old_value=hungry,new_value=fed'; sleep 8; done"]
         resources:
           requests:
             memory: "32Mi"

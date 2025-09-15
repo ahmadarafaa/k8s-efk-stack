@@ -51,20 +51,20 @@ data:
       <record>
         cluster_namespace ${record['kubernetes']['namespace_name']}
         app_name ${record['kubernetes']['labels']['app'] || record['kubernetes']['labels']['k8s-app'] || 'generic'}
-        full_index_name ${record['kubernetes']['namespace_name']}-${record['kubernetes']['labels']['app'] || record['kubernetes']['labels']['k8s-app'] || 'generic'}
+        full_index_name ${record['kubernetes']['namespace_name']}_${record['kubernetes']['labels']['app'] || record['kubernetes']['labels']['k8s-app'] || 'generic'}
         log_level ${record['log'].match(/\b(DEBUG|INFO|WARN|ERROR|FATAL)\b/) ? record['log'].match(/\b(DEBUG|INFO|WARN|ERROR|FATAL)\b/)[0] : 'UNKNOWN'}
         @timestamp ${Time.now.strftime('%Y-%m-%dT%H:%M:%S.%3NZ')}
       </record>
     </filter>
 
-    # Parse AUDIT logs from any namespace
+    # Parse ALERT logs from any namespace
     <filter kubernetes.**>
       @type parser
       key_name log
       reserve_data true
       <parse>
         @type grok
-        grok_pattern \[AUDIT\]\s*user=(?<User>[^,]+),\s*action=(?<Action>[^,]+),\s*project=(?<Project>[^,]+),\s*status=(?<Status>[^,]+),\s*Field=(?<Field>[^,]+),\s*old_value=(?<Old_value>[^,]+),\s*new_value=(?<New_value>.+)
+        grok_pattern \[ALERT\]\s*user=(?<User>[^,]+),\s*action=(?<Action>[^,]+),\s*project=(?<Project>[^,]+),\s*status=(?<Status>[^,]+),\s*Field=(?<Field>[^,]+),\s*old_value=(?<Old_value>[^,]+),\s*new_value=(?<New_value>.+)
       </parse>
     </filter>
 
@@ -73,8 +73,8 @@ data:
       @type rewrite_tag_filter
       <rule>
         key log
-        pattern /\[AUDIT\]/
-        tag audit.${record['cluster_namespace']}
+        pattern /\[ALERT\]/
+        tag alert.${record['cluster_namespace']}
       </rule>
       <rule>
         key log_level
@@ -84,12 +84,12 @@ data:
       <rule>
         key full_index_name
         pattern (.+)
-        tag app.${1}
+        tag app.$1
       </rule>
     </match>
 
-    # Output 1: All AUDIT logs to centralized index
-    <match audit.**>
+    # Output 1: All ALERT logs to centralized index
+    <match alert.**>
       @type elasticsearch
       host "#{ENV['ELASTICSEARCH_HOST']}"
       port "#{ENV['ELASTICSEARCH_PORT']}"
@@ -98,12 +98,12 @@ data:
       scheme "#{ENV['ELASTICSEARCH_SCHEME']}"
       ssl_verify false
       
-      index_name cluster-audit-trail
+      index_name alerts_cluster
       suppress_type_name true
       
       <buffer>
         @type file
-        path /var/log/fluentd-buffers/cluster-audit
+        path /var/log/fluentd-buffers/cluster-alert
         flush_mode interval
         flush_interval 5s
         retry_max_times 5

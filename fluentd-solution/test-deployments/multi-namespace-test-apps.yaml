@@ -25,7 +25,7 @@ spec:
         image: busybox
         imagePullPolicy: IfNotPresent
         command: ["/bin/sh"]
-        args: ["-c", "while true; do echo 'INFO: production web-service handling request #$((RANDOM % 1000))'; sleep 5; echo 'AUDIT user=webuser,action=login,project=ProdWeb,status=success,Field=Session,old_value=inactive,new_value=active'; sleep 10; done"]
+        args: ["-c", "while true; do echo 'INFO: production web-service handling request #$((RANDOM % 1000))'; sleep 5; echo 'ALERT user=webuser,action=login,project=ProdWeb,status=success,Field=Session,old_value=inactive,new_value=active'; sleep 10; done"]
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -76,7 +76,7 @@ spec:
         image: busybox
         imagePullPolicy: IfNotPresent
         command: ["/bin/sh"]
-        args: ["-c", "while true; do echo 'INFO: staging web-service testing feature #$((RANDOM % 100))'; sleep 4; echo 'AUDIT user=testuser,action=feature_test,project=StagingWeb,status=success,Field=Feature,old_value=disabled,new_value=enabled'; sleep 8; done"]
+        args: ["-c", "while true; do echo 'INFO: staging web-service testing feature #$((RANDOM % 100))'; sleep 4; echo 'ALERT user=testuser,action=feature_test,project=StagingWeb,status=success,Field=Feature,old_value=disabled,new_value=enabled'; sleep 8; done"]
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -127,7 +127,7 @@ spec:
         image: busybox
         imagePullPolicy: IfNotPresent
         command: ["/bin/sh"]
-        args: ["-c", "while true; do echo 'DEBUG: development auth-service validating token'; sleep 2; echo 'AUDIT user=devuser,action=authenticate,project=DevAuth,status=success,Field=Token,old_value=invalid,new_value=valid'; sleep 5; done"]
+        args: ["-c", "while true; do echo 'DEBUG: development auth-service validating token'; sleep 2; echo 'ALERT user=devuser,action=authenticate,project=DevAuth,status=success,Field=Token,old_value=invalid,new_value=valid'; sleep 5; done"]
 ---
 apiVersion: apps/v1
 kind: Deployment
