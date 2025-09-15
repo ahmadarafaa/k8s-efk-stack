@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: fluentd-dynamic-alert-config
+  name: fluentd-single-namespace-alert-config
   namespace: logging
 data:
   fluent.conf: |

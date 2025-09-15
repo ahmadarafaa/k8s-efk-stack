@@ -118,4 +118,4 @@ spec:
           path: /var/log/pods
       - name: config-volume
         configMap:
-          name: fluentd-dynamic-alert-config
+          name: fluentd-single-namespace-alert-config

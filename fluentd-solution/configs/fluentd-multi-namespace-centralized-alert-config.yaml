@@ -5,7 +5,7 @@ metadata:
   namespace: logging
 data:
   fluent.conf: |
-    # Multi-Namespace Configuration with CENTRALIZED Audit Trail
+    # Multi-Namespace Configuration with CENTRALIZED Alert Processing
     # All ALERT logs go to a single centralized index
     
     # Source: Tail container logs from multiple namespaces

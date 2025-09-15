@@ -5,7 +5,7 @@ metadata:
   namespace: logging
 data:
   fluent.conf: |
-    # Multi-Namespace Configuration with NAMESPACE-SPECIFIC Audit Trails
+    # Multi-Namespace Configuration with NAMESPACE-SPECIFIC Alert Processing
     # Each namespace gets its own alerts_{namespace} index
     
     # Source: Tail container logs from multiple namespaces
