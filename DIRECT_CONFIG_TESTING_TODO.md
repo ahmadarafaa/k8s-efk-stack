@@ -36,7 +36,7 @@ Testing all Fluentd ConfigMap configurations without deployment tools, covering 
 - [x] Verify collection from `logging-test` namespace only
 - [x] Check logs → `alerts_logging-test`, `{app}` indices (alert-tester: 4 logs, another-animal: 63+ logs)
 - [x] Test namespace isolation
-- [x] Verified ALERT log parsing: User, Action, Project, Status, Field, Old_value, New_value fields extracted
+- [x] Verified ALERT log parsing: User, Action, Status, Field, Old_value, New_value fields extracted
 
 **Status:** ✅ **PASSED** - Perfect namespace isolation, ALERT routing works, app-based indexing functional
 
@@ -93,7 +93,7 @@ Testing all Fluentd ConfigMap configurations without deployment tools, covering 
   - `alerts_development`: 6 documents
 - [x] **App Log Routing**: `{namespace}_{app}` format working correctly (990+ docs in logging-test_another-animal, etc.)
 - [x] **Field Parsing Verified**: All ALERT fields extracted properly
-  - User: "animaluser", Action: "feed", Project: "ZooTest", Status: "success", Field: "Animal", Old_value: "hungry", New_value: "fed"
+  - User: "animaluser", Action: "feed", Status: "success", Field: "Animal", Old_value: "hungry", New_value: "fed"
 - [x] **Configuration Updated**: All 5 config files updated with new naming convention
 - [x] **Issues Resolved**: Pattern matching fixed, ALERT routing functional, per-namespace separation working
 
@@ -107,7 +107,7 @@ Testing all Fluentd ConfigMap configurations without deployment tools, covering 
 - [x] **VERIFIED**: Dynamic namespace detection working - only processes `logging-test` namespace
 - [x] **ALERT Index Created**: `alerts_logging-test` with 5 documents
 - [x] **Field Parsing Verified**: All ALERT fields extracted properly
-  - User: "animaluser", Action: "feed", Project: "ZooTest", Status: "success", Field: "Animal", Old_value: "hungry", New_value: "fed"
+  - User: "animaluser", Action: "feed", Status: "success", Field: "Animal", Old_value: "hungry", New_value: "fed"
 - [x] **App Log Routing**: Dynamic `target_index` field creates `another-animal` index (40 documents)
 - [x] **Namespace Isolation**: Only logs from logging-test namespace processed (no other namespace indices created)
 - [x] **Configuration Updated**: ALERT pattern matching fixed for proper detection
