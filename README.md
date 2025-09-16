@@ -1,34 +1,102 @@
 # EFK Stack for Kubernetes Log Management
 
-A production-ready Elasticsearch, Fluentd, and Kibana (EFK) stack for Kubernetes log aggregation with advanced alert processing and flexible routing configurations.
+![License](https://img.shields.io/badge/License-MIT-blue.svg)
+![Platform](https://img.shields.io/badge/Platform-Kubernetes-326CE5.svg)
+![YAML](https://img.shields.io/badge/Config-YAML-blue.svg)
+![Fluentd](https://img.shields.io/badge/Logging-Fluentd-yellow.svg)
+![Elasticsearch](https://img.shields.io/badge/Search-Elasticsearch-005571.svg)
+![Kibana](https://img.shields.io/badge/Visualization-Kibana-e8478b.svg)
+
+> **Streamline Kubernetes log management with production-ready EFK stack, featuring advanced pattern detection, multi-namespace support, and flexible routing—delivering comprehensive log aggregation and processing for modern containerized environments.**
+
+## Table of Contents
+
+<table style="width: 100%; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+<tr style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
+<td width="50%" style="padding: 25px; vertical-align: top; border-right: 1px solid #dee2e6;">
+
+### **Getting Started**
+<div style="margin: 0 0 20px 0; border-left: 3px solid #6c757d; padding-left: 15px;">
+
+- [Overview](#overview)
+- [Features](#features)
+- [Architecture](#architecture)
+  - [Components](#components)
+  - [Log Processing Pipeline](#log-processing-pipeline)
+- [Quick Start](#quick-start)
+  - [Prerequisites](#prerequisites)
+  - [Basic Deployment](#basic-deployment)
+
+</div>
+
+### **Configuration & Setup**
+<div style="margin: 0; border-left: 3px solid #6c757d; padding-left: 15px;">
+
+- [Configuration Options](#configuration-options)
+  - [Available ConfigMaps](#available-configmaps)
+  - [Environment Variables](#environment-variables)
+- [Custom Log Pattern Processing](#custom-log-pattern-processing)
+  - [Example: Alert Log Format](#example-alert-log-format)
+  - [Custom Pattern Configuration](#custom-pattern-configuration)
+
+</div>
+
+</td>
+<td width="50%" style="padding: 25px; vertical-align: top;">
+
+### **Operations & Monitoring**
+<div style="margin: 0 0 20px 0; border-left: 3px solid #6c757d; padding-left: 15px;">
+
+- [Index Patterns](#index-patterns)
+  - [Alert Indices](#alert-indices)
+  - [Application Indices](#application-indices)
+- [Monitoring and Troubleshooting](#monitoring-and-troubleshooting)
+  - [Check Deployment Status](#check-deployment-status)
+  - [Common Issues](#common-issues)
+
+</div>
+
+### **Development & Support**
+<div style="margin: 0; border-left: 3px solid #6c757d; padding-left: 15px;">
+
+- [Development](#development)
+  - [File Structure](#file-structure)
+  - [Adding New Configurations](#adding-new-configurations)
+- [Security Considerations](#security-considerations)
+- [Future Work](#future-work)
+- [Contributing](#contributing)
+- [License](#license)
+
+</div>
+
+</td>
+</tr>
+</table>
 
 ## Overview
 
-This project provides comprehensive log collection and processing for Kubernetes environments with specialized support for alert log parsing, multi-namespace deployments, and configurable indexing strategies. The stack includes multiple Fluentd configurations optimized for different deployment scenarios.
+This project provides comprehensive log collection and processing for Kubernetes environments with specialized support for custom log pattern processing, multi-namespace deployments, and configurable indexing strategies. The stack includes multiple Fluentd configurations optimized for different deployment scenarios.
 
 ## Features
 
-- **Alert Log Processing**: Automatic detection and field extraction from ALERT log entries
+- **Custom Log Processing**: Automatic detection and field extraction from configurable log patterns
 - **Multi-Namespace Support**: Configurable log collection across multiple Kubernetes namespaces
 - **Flexible Indexing**: Multiple routing strategies including centralized, per-namespace, and time-series indexing
 - **Production Ready**: Includes RBAC, service accounts, and security configurations
-- **Validated Configurations**: Production-ready configurations with comprehensive validation
 
 ## Architecture
 
 ### Components
 
 - **Fluentd DaemonSet**: Collects container logs from all nodes
-- **Elasticsearch**: Stores and indexes log data with configurable retention
-- **Kibana**: Provides visualization and search capabilities
 - **ConfigMaps**: Multiple configurations for different deployment scenarios
 - **RBAC**: Proper security controls and service account permissions
 
 ### Log Processing Pipeline
 
-1. **Collection**: Fluentd tails container logs from `/var/log/containers/`
+1. **Collection**: Fluentd tails container logs from `/var/log/containers/` on each node
 2. **Enrichment**: Kubernetes metadata filter adds pod, namespace, and container information
-3. **Alert Detection**: Identifies and parses ALERT log entries with structured field extraction
+3. **Pattern Detection**: Identifies and parses custom log patterns with structured field extraction
 4. **Routing**: Logs are routed to appropriate Elasticsearch indices based on configuration
 5. **Storage**: Indexed in Elasticsearch with configurable retention policies
 
@@ -36,7 +104,7 @@ This project provides comprehensive log collection and processing for Kubernetes
 
 ### Prerequisites
 
-- Kubernetes cluster (v1.20+)
+- Kubernetes cluster (v1.16+)
 - kubectl configured
 - Elasticsearch cluster or instance
 
@@ -57,10 +125,20 @@ kubectl apply -f fluentd-solution/configs/fluentd-single-namespace-alert-config.
 kubectl apply -f fluentd-solution/configs/fluentd-all-except-system-config.yaml
 ```
 
-3. **Deploy the Fluentd DaemonSet:**
-```bash
-kubectl apply -f fluentd-solution/configs/fluentd-daemonset.yaml
-```
+3. **Configure and deploy the Fluentd DaemonSet:**
+
+   First, edit the DaemonSet configuration to reference your chosen ConfigMap:
+   ```bash
+   # Edit the DaemonSet file to match your chosen ConfigMap name
+   # Update line 121 in fluentd-daemonset.yaml:
+   # configMap:
+   #   name: your-chosen-configmap-name
+   ```
+
+   Then deploy the DaemonSet:
+   ```bash
+   kubectl apply -f fluentd-solution/configs/fluentd-daemonset.yaml
+   ```
 
 
 
@@ -94,9 +172,13 @@ Set the password in the Elasticsearch Secret:
 password: "your-base64-encoded-password"
 ```
 
-## Alert Log Format
+## Custom Log Pattern Processing
 
-The system automatically detects and parses ALERT logs in this format:
+The system can be configured to automatically detect and parse custom log patterns with structured field extraction. You can define any pattern string relevant to your application.
+
+### Example: Alert Log Format
+
+Configure the system to detect and parse logs with patterns like "ALERT":
 
 ```
 ALERT user=username,action=action_name,status=success,Field=field_name,old_value=old,new_value=new
@@ -109,6 +191,10 @@ Extracted fields:
 - `Field`: Field that was modified
 - `Old_value`: Previous value
 - `New_value`: New value
+
+### Custom Pattern Configuration
+
+You can customize the pattern detection by modifying the Fluentd configuration to handle any log format specific to your application needs.
 
 ## Index Patterns
 
@@ -163,15 +249,7 @@ kubectl get configmap -n logging
 2. Follow naming convention: `fluentd-{purpose}-config.yaml`
 3. Update DaemonSet to reference new ConfigMap
 4. Validate configuration functionality
-5. Document in analysis file
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Validate configuration changes
-4. Update documentation
-5. Submit a pull request
+5. Test configuration and validate functionality
 
 ## Security Considerations
 
@@ -188,7 +266,15 @@ kubectl get configmap -n logging
 - [ ] **Log Retention Policies**: Automated index lifecycle management
 - [ ] **Multi-cluster Support**: Cross-cluster log aggregation
 
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Validate configuration changes
+4. Update documentation
+5. Submit a pull request
+
 ## License
 
-This project is provided as-is for educational and production use.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
