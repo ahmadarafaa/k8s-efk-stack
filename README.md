@@ -7,17 +7,15 @@
 ![Elasticsearch](https://img.shields.io/badge/Search-Elasticsearch-005571.svg)
 ![Kibana](https://img.shields.io/badge/Visualization-Kibana-e8478b.svg)
 
-> **Streamline Kubernetes log management with production-ready EFK stack, featuring advanced pattern detection, multi-namespace support, and flexible routing—delivering comprehensive log aggregation and processing for modern containerized environments.**
+> **Streamline Kubernetes log management with production-ready EFK stack, featuring advanced pattern detection, multi-namespace support, and flexible routing configurations. This stack brings comprehensive log aggregation and processing to modern containerized environments.**
 
 ## Table of Contents
 
-<table style="width: 100%; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-<tr style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
-<td width="50%" style="padding: 25px; vertical-align: top; border-right: 1px solid #dee2e6;">
+<table width="100%">
+<tr>
+<td width="50%" valign="top">
 
-### **Getting Started**
-<div style="margin: 0 0 20px 0; border-left: 3px solid #6c757d; padding-left: 15px;">
-
+### **<u>Getting Started</u>**
 - [Overview](#overview)
 - [Features](#features)
 - [Architecture](#architecture)
@@ -27,11 +25,7 @@
   - [Prerequisites](#prerequisites)
   - [Basic Deployment](#basic-deployment)
 
-</div>
-
-### **Configuration & Setup**
-<div style="margin: 0; border-left: 3px solid #6c757d; padding-left: 15px;">
-
+### **<u>Configuration & Setup</u>**
 - [Configuration Options](#configuration-options)
   - [Available ConfigMaps](#available-configmaps)
   - [Environment Variables](#environment-variables)
@@ -39,14 +33,10 @@
   - [Example: Alert Log Format](#example-alert-log-format)
   - [Custom Pattern Configuration](#custom-pattern-configuration)
 
-</div>
-
 </td>
-<td width="50%" style="padding: 25px; vertical-align: top;">
+<td width="50%" valign="top">
 
-### **Operations & Monitoring**
-<div style="margin: 0 0 20px 0; border-left: 3px solid #6c757d; padding-left: 15px;">
-
+### **<u>Operations & Monitoring</u>**
 - [Index Patterns](#index-patterns)
   - [Alert Indices](#alert-indices)
   - [Application Indices](#application-indices)
@@ -54,11 +44,7 @@
   - [Check Deployment Status](#check-deployment-status)
   - [Common Issues](#common-issues)
 
-</div>
-
-### **Development & Support**
-<div style="margin: 0; border-left: 3px solid #6c757d; padding-left: 15px;">
-
+### **<u>Development & Support</u>**
 - [Development](#development)
   - [File Structure](#file-structure)
   - [Adding New Configurations](#adding-new-configurations)
@@ -66,8 +52,6 @@
 - [Future Work](#future-work)
 - [Contributing](#contributing)
 - [License](#license)
-
-</div>
 
 </td>
 </tr>
