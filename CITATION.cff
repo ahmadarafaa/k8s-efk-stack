@@ -17,4 +17,5 @@ keywords:
   - efk-stack
   - daemonset
 license: MIT
-date-released: 2024-12-19
+date-released: 2024-09-17
+version: "1.0.0"
