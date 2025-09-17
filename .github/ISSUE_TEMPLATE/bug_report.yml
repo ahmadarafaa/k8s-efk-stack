@@ -1,0 +1,116 @@
+name: Bug Report
+description: Something's not working right? Let us know!
+title: "[BUG] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill out the information below to help us debug the issue.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What's going wrong?
+      description: Tell us what's happening that shouldn't be happening.
+      placeholder: Describe the issue you're experiencing...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Walk us through the exact steps to reproduce this issue
+      placeholder: |
+        1. I deployed this config: '...'
+        2. Then I ran this command: '...'
+        3. And this error showed up: '...'
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen instead?
+      placeholder: What should have happened?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: k8s-version
+    attributes:
+      label: Kubernetes Version
+      description: What version of Kubernetes are you running?
+      options:
+        - 1.28.x
+        - 1.27.x
+        - 1.26.x
+        - 1.25.x
+        - 1.24.x
+        - 1.23.x
+        - 1.22.x
+        - 1.21.x
+        - 1.20.x
+        - 1.19.x
+        - 1.18.x
+        - 1.17.x
+        - 1.16.x
+        - Other (please specify in additional context)
+    validations:
+      required: true
+
+  - type: input
+    id: fluentd-image
+    attributes:
+      label: Fluentd Image
+      description: Which Fluentd image are you using?
+      placeholder: "e.g., v1.16-debian-elasticsearch"
+    validations:
+      required: true
+
+  - type: input
+    id: elasticsearch-version
+    attributes:
+      label: Elasticsearch Version
+      description: What version of Elasticsearch are you connecting to?
+      placeholder: "e.g., 7.17.0, 8.5.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: config-used
+    attributes:
+      label: Which configuration are you using?
+      description: Select the Fluentd configuration you're using
+      options:
+        - fluentd-minimal-basic-config
+        - fluentd-single-namespace-alert-config
+        - fluentd-multi-namespace-centralized-alert-config
+        - fluentd-multi-namespace-per-ns-alert-config
+        - fluentd-all-except-system-config
+        - fluentd-environment-based-config
+        - Custom configuration
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error logs
+      description: Please paste any relevant error messages or logs
+      placeholder: |
+        kubectl logs -l k8s-app=fluentd-logging -n logging
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Any other details that might help us figure this out?
+      placeholder: Add any other context about the problem here
+    validations:
+      required: false

@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+title: "Kubernetes EFK Stack"
+message: "If you use this software, please cite it as below."
+type: software
+authors:
+  - family-names: "Arafa"
+    given-names: "Ahmed"
+repository-code: "https://github.com/ahmadarafaa/k8s-efk-stack"
+url: "https://github.com/ahmadarafaa/k8s-efk-stack"
+abstract: "Production-ready Kubernetes EFK logging stack for multi-namespace log aggregation and processing. Uses Fluentd DaemonSet to route container logs to Elasticsearch with configurable indexing and Kibana visualization."
+keywords:
+  - kubernetes
+  - logging
+  - fluentd
+  - elasticsearch
+  - kibana
+  - efk-stack
+  - daemonset
+license: MIT
+date-released: 2024-12-19
