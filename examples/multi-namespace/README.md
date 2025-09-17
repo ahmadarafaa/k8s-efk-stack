@@ -1,41 +1,41 @@
 # Multi-Namespace Example
 
-Ready to go big? This example shows you how to collect logs from multiple namespaces at once. Perfect for when you have different environments or teams.
+This example demonstrates how to collect logs from multiple namespaces simultaneously. This configuration is suitable for environments with different teams or deployment stages.
 
-## What's Here
-- `namespaces.yaml` - Creates some test namespaces
-- `deployments.yaml` - Test apps in different namespaces
-- `fluentd-config.yaml` - Multi-namespace Fluentd setup
+## Files Included
+- `namespaces.yaml` - Creates test namespaces for demonstration
+- `deployments.yaml` - Sample applications deployed across namespaces
+- `fluentd-config.yaml` - Multi-namespace Fluentd configuration
 - `elasticsearch-config-and-secret.yaml` - Elasticsearch connection and credentials
 
-## How to Set It Up
+## Deployment Steps
 
-1. Make some namespaces:
+1. Create the test namespaces:
    ```bash
    kubectl apply -f namespaces.yaml
    ```
 
-2. Connect to Elasticsearch:
+2. Deploy Elasticsearch configuration:
    ```bash
    kubectl apply -f elasticsearch-config-and-secret.yaml
    ```
 
-3. Set up Fluentd for multiple namespaces:
+3. Apply the multi-namespace Fluentd configuration:
    ```bash
    kubectl apply -f fluentd-config.yaml
    ```
 
-4. Deploy test apps in each namespace:
+4. Deploy the test applications:
    ```bash
    kubectl apply -f deployments.yaml
    ```
 
-5. Fire up Fluentd:
+5. Start the Fluentd DaemonSet:
    ```bash
    kubectl apply -f ../../fluentd-solution/configs/fluentd-daemonset.yaml
    ```
 
-## What You Should See
-- Logs flowing in from `production`, `staging`, `development`, and `logging-test` namespaces
-- Alert logs get collected into one central index called `centralized-alert-logs`
-- Regular app logs get sorted into indices like `production_web-app`, `staging_api-service`, etc.
+## Expected Results
+- Log collection from `production`, `staging`, `development`, and `logging-test` namespaces
+- Alert logs centralized in the `centralized-alert-logs` index
+- Application logs organized in namespace-specific indices such as `production_web-app` and `staging_api-service`

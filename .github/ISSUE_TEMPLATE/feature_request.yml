@@ -1,0 +1,86 @@
+name: Feature Request
+description: Got an idea to make this EFK stack even better?
+title: "[FEATURE] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a new feature! Please provide as much detail as possible to help us understand your use case.
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use case
+      description: What problem are you trying to solve? What's your logging scenario?
+      placeholder: |
+        e.g., "I need to collect logs from multiple clusters and route them to different Elasticsearch instances based on environment"
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed solution
+      description: How would you like this feature to work? Be as detailed as possible.
+      placeholder: |
+        e.g., "Add a new configuration that allows defining multiple Elasticsearch outputs with routing rules based on namespace labels"
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Have you considered any alternative solutions or workarounds?
+      placeholder: |
+        e.g., "I tried using multiple Fluentd configurations but it's hard to maintain"
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: impact
+    attributes:
+      label: Impact
+      description: What areas would this feature affect?
+      options:
+        - label: Fluentd configuration
+        - label: Kubernetes manifests (DaemonSet, RBAC, etc.)
+        - label: Log parsing and filtering
+        - label: Elasticsearch indexing strategy
+        - label: Documentation
+        - label: Helm chart
+        - label: Security considerations
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How important is this feature for your use case?
+      options:
+        - Nice to have
+        - Would improve my workflow
+        - Important for my use case
+        - Blocking my adoption
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: |
+        Add any other context, screenshots, links to relevant documentation, or examples that might help explain the feature request.
+      placeholder: Any additional information that might be helpful
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      description: Are you willing to help implement this feature?
+      options:
+        - label: I'd like to help implement this feature
+        - label: I can help with testing
+        - label: I can help with documentation

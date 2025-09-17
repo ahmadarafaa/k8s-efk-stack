@@ -10,6 +10,8 @@
 
 > **Streamline Kubernetes log management with production-ready EFK stack, featuring advanced pattern detection, multi-namespace support, and flexible routing configurations. This stack brings comprehensive log aggregation and processing to modern containerized environments.**
 
+Production-ready Kubernetes EFK logging stack for multi-namespace log aggregation and processing. Uses Fluentd DaemonSet to route container logs from `/var/log/containers/` to Elasticsearch with configurable indexing and visualization in Kibana.
+
 ## Table of Contents
 
 | **Getting Started** | **Operations & Monitoring** |
@@ -31,7 +33,9 @@ This project provides comprehensive log collection and processing for Kubernetes
 
 ## Architecture
 
-**[📊 View Architecture Diagram](docs/architecture-diagram.md)**
+**[View Architecture Diagram](docs/architecture-diagram.md)**
+
+_Alt: Fluentd DaemonSet tails container logs from `/var/log/containers/`, enriches with Kubernetes metadata, and routes to Elasticsearch indices. Kibana queries indices for visualization._
 
 The EFK stack follows a distributed architecture where Fluentd runs as a DaemonSet on every Kubernetes node, collecting logs from all containers and routing them to Elasticsearch based on configurable patterns.
 
@@ -49,6 +53,15 @@ The EFK stack follows a distributed architecture where Fluentd runs as a DaemonS
 4. **Routing**: Logs are routed to appropriate Elasticsearch indices based on configuration
 5. **Storage**: Indexed in Elasticsearch with configurable retention policies
 
+## Why this stack?
+
+- **Native Kubernetes DaemonSet log collection** - No sidecar containers needed, efficient resource usage
+- **Flexible index strategies** - Per namespace, centralized, or time-series indexing patterns
+- **Built-in support for custom log pattern detection** - Automatically parse structured logs and alerts
+- **Multi-namespace support** - Collect from specific namespaces or cluster-wide with RBAC controls
+- **Production-ready configurations** - Multiple deployment scenarios with security best practices
+- **Lightweight compared to ELK** - Fluentd uses less memory than Logstash for similar functionality
+
 ## Quick Start
 
 ### Prerequisites
@@ -60,32 +73,56 @@ The EFK stack follows a distributed architecture where Fluentd runs as a DaemonS
 ### Basic Deployment
 
 1. **Deploy Elasticsearch configuration:**
-```bash
-kubectl apply -f fluentd-solution/configs/elasticsearch-config-and-secret.yaml
-```
+
+   **Important**: First, edit `fluentd-solution/configs/elasticsearch-config-and-secret.yaml` to update the Elasticsearch host IP and credentials:
+   ```yaml
+   # Replace with your actual Elasticsearch host IP or hostname
+   elasticsearch-host: "192.168.1.100"  # Change this!
+   # Update credentials if needed
+   password: Y2hhbmdlbWU=  # base64 encoded, change if needed
+   ```
+
+   Then deploy:
+   ```bash
+   kubectl apply -f fluentd-solution/configs/elasticsearch-config-and-secret.yaml
+   ```
 
 2. **Choose and deploy a Fluentd configuration:**
-```bash
-# For single namespace deployment
-kubectl apply -f fluentd-solution/configs/fluentd-single-namespace-alert-config.yaml
 
-# For cluster-wide deployment
-kubectl apply -f fluentd-solution/configs/fluentd-all-except-system-config.yaml
-```
+   **Note**: Review the [Configuration Options](#configuration-options) section below to choose the right config for your use case.
+   ```bash
+   # For single namespace deployment
+   kubectl apply -f fluentd-solution/configs/fluentd-single-namespace-alert-config.yaml
+
+   # For cluster-wide deployment (excludes system namespaces)
+   kubectl apply -f fluentd-solution/configs/fluentd-all-except-system-config.yaml
+
+   # For multi-namespace with centralized alerts
+   kubectl apply -f fluentd-solution/configs/fluentd-multi-namespace-centralized-alert-config.yaml
+   ```
 
 3. **Configure and deploy the Fluentd DaemonSet:**
 
-   First, edit the DaemonSet configuration to reference your chosen ConfigMap:
+   **Important**: Edit the DaemonSet configuration to reference your chosen ConfigMap:
    ```bash
-   # Edit the DaemonSet file to match your chosen ConfigMap name
-   # Update line 121 in fluentd-daemonset.yaml:
+   # Edit fluentd-solution/configs/fluentd-daemonset.yaml
+   # Update line 121 to match your chosen ConfigMap name:
    # configMap:
-   #   name: your-chosen-configmap-name
+   #   name: fluentd-single-namespace-alert-config  # Replace with your choice
    ```
 
    Then deploy the DaemonSet:
    ```bash
    kubectl apply -f fluentd-solution/configs/fluentd-daemonset.yaml
+   ```
+
+4. **Verify the deployment:**
+   ```bash
+   # Check if pods are running
+   kubectl get pods -l k8s-app=fluentd-logging -n logging
+
+   # Check logs for any issues
+   kubectl logs -l k8s-app=fluentd-logging -n logging
    ```
 
 ## Configuration Options

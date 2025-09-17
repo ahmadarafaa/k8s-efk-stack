@@ -1,35 +1,35 @@
 # Single Namespace Example
 
-Want to try this on just one namespace first? Smart move! This example shows you how to get logs from a single namespace.
+This example demonstrates log collection from a single namespace. This configuration is ideal for testing or environments with isolated application deployments.
 
-## What's Here
-- `deployment.yaml` - A test app to generate some logs
-- `fluentd-config.yaml` - Fluentd setup for single namespace
+## Files Included
+- `deployment.yaml` - Test application for log generation
+- `fluentd-config.yaml` - Single namespace Fluentd configuration
 - `elasticsearch-config-and-secret.yaml` - Elasticsearch connection and credentials
 
-## How to Set It Up
+## Deployment Steps
 
-1. Tell Fluentd where your Elasticsearch is:
+1. Deploy Elasticsearch configuration:
    ```bash
    kubectl apply -f elasticsearch-config-and-secret.yaml
    ```
 
-2. Set up the Fluentd config:
+2. Apply the Fluentd configuration:
    ```bash
    kubectl apply -f fluentd-config.yaml
    ```
 
-3. Deploy a test app to make some logs:
+3. Deploy the test application:
    ```bash
    kubectl apply -f deployment.yaml
    ```
 
-4. Start up Fluentd:
+4. Start the Fluentd DaemonSet:
    ```bash
    kubectl apply -f ../../fluentd-solution/configs/fluentd-daemonset.yaml
    ```
 
-## What You Should See
-- Logs start showing up from the `logging-test` namespace
-- If your app logs have special patterns, they get parsed nicely
-- Different types of logs end up in the right Elasticsearch indices
+## Expected Results
+- Log collection from the `logging-test` namespace
+- Automatic parsing of structured log patterns when present
+- Proper routing of different log types to appropriate Elasticsearch indices
