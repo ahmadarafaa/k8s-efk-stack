@@ -56,10 +56,10 @@ helm install fluentd ./efk-helm-chart -n logging --create-namespace \
 
 The chart expects audit logs in this format:
 ```
-[AUDIT] user=pocuser,action=execute,project=NewPOC,status=success,Field=Task,old_value=pending,new_value=completed
+[AUDIT] user=pocuser,action=execute,project=NewPOC,status=success,Field=Task,original=pending,updated=completed
 ```
 
-Parsed fields: `User`, `Action`, `Project`, `Status`, `Field`, `Old_value`, `New_value`
+Parsed fields: `User`, `Action`, `Project`, `Status`, `Field`, `Original`, `Updated`
 
 ## Index Structure
 
@@ -112,7 +112,7 @@ kubectl describe configmap fluentd-config -n logging
 
 ### Test Log Generation
 ```bash
-kubectl run test-pod --image=busybox --restart=Never -- sh -c 'echo "[AUDIT] user=testuser,action=create,project=TestProj,status=success,Field=Resource,old_value=none,new_value=created"'
+kubectl run test-pod --image=busybox --restart=Never -- sh -c 'echo "[AUDIT] user=testuser,action=create,project=TestProj,status=success,Field=Resource,original=none,updated=created"'
 ```
 
 ## Security Considerations

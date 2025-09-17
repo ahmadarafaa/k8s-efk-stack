@@ -1,6 +1,7 @@
 # EFK Stack for Kubernetes Log Management
 
-![License](https://img.shields.io/badge/License-MIT-blue.svg)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+![Kubernetes](https://img.shields.io/badge/Kubernetes-1.16%2B-blue)
 ![Platform](https://img.shields.io/badge/Platform-Kubernetes-326CE5.svg)
 ![YAML](https://img.shields.io/badge/Config-YAML-blue.svg)
 ![Fluentd](https://img.shields.io/badge/Logging-Fluentd-yellow.svg)
@@ -11,51 +12,11 @@
 
 ## Table of Contents
 
-<table width="100%">
-<tr>
-<td width="50%" valign="top">
-
-### **<u>Getting Started</u>**
-- [Overview](#overview)
-- [Features](#features)
-- [Architecture](#architecture)
-  - [Components](#components)
-  - [Log Processing Pipeline](#log-processing-pipeline)
-- [Quick Start](#quick-start)
-  - [Prerequisites](#prerequisites)
-  - [Basic Deployment](#basic-deployment)
-
-### **<u>Configuration & Setup</u>**
-- [Configuration Options](#configuration-options)
-  - [Available ConfigMaps](#available-configmaps)
-  - [Environment Variables](#environment-variables)
-- [Custom Log Pattern Processing](#custom-log-pattern-processing)
-  - [Example: Alert Log Format](#example-alert-log-format)
-  - [Custom Pattern Configuration](#custom-pattern-configuration)
-
-</td>
-<td width="50%" valign="top">
-
-### **<u>Operations & Monitoring</u>**
-- [Index Patterns](#index-patterns)
-  - [Alert Indices](#alert-indices)
-  - [Application Indices](#application-indices)
-- [Monitoring and Troubleshooting](#monitoring-and-troubleshooting)
-  - [Check Deployment Status](#check-deployment-status)
-  - [Common Issues](#common-issues)
-
-### **<u>Development & Support</u>**
-- [Development](#development)
-  - [File Structure](#file-structure)
-  - [Adding New Configurations](#adding-new-configurations)
-- [Security Considerations](#security-considerations)
-- [Future Work](#future-work)
-- [Contributing](#contributing)
-- [License](#license)
-
-</td>
-</tr>
-</table>
+| **Getting Started** | **Operations & Monitoring** |
+|---------------------|------------------------------|
+| [Overview](#overview)<br/>[Features](#features)<br/>[Architecture](#architecture)<br/>&nbsp;&nbsp;• [Components](#components)<br/>&nbsp;&nbsp;• [Log Processing Pipeline](#log-processing-pipeline)<br/>[Quick Start](#quick-start)<br/>&nbsp;&nbsp;• [Prerequisites](#prerequisites)<br/>&nbsp;&nbsp;• [Basic Deployment](#basic-deployment) | [Index Patterns](#index-patterns)<br/>&nbsp;&nbsp;• [Alert Indices](#alert-indices)<br/>&nbsp;&nbsp;• [Application Indices](#application-indices)<br/>[Monitoring and Troubleshooting](#monitoring-and-troubleshooting)<br/>&nbsp;&nbsp;• [Check Deployment Status](#check-deployment-status)<br/>&nbsp;&nbsp;• [Common Issues](#common-issues) |
+| **Configuration & Setup** | **Development & Support** |
+| [Configuration Options](#configuration-options)<br/>&nbsp;&nbsp;• [Available ConfigMaps](#available-configmaps)<br/>&nbsp;&nbsp;• [Environment Variables](#environment-variables)<br/>[Custom Log Pattern Processing](#custom-log-pattern-processing)<br/>&nbsp;&nbsp;• [Example: Alert Log Format](#example-alert-log-format)<br/>&nbsp;&nbsp;• [Custom Pattern Configuration](#custom-pattern-configuration) | [Development](#development)<br/>&nbsp;&nbsp;• [File Structure](#file-structure)<br/>&nbsp;&nbsp;• [Adding New Configurations](#adding-new-configurations)<br/>[Security Considerations](#security-considerations)<br/>[Future Work](#future-work)<br/>[Contributing](#contributing)<br/>[License](#license) |
 
 ## Overview
 
@@ -70,11 +31,15 @@ This project provides comprehensive log collection and processing for Kubernetes
 
 ## Architecture
 
+**[📊 View Architecture Diagram](docs/architecture-diagram.md)**
+
+The EFK stack follows a distributed architecture where Fluentd runs as a DaemonSet on every Kubernetes node, collecting logs from all containers and routing them to Elasticsearch based on configurable patterns.
+
 ### Components
 
 - **Fluentd DaemonSet**: Collects container logs from all nodes
 - **ConfigMaps**: Multiple configurations for different deployment scenarios
-- **RBAC**: Proper security controls and service account permissions
+- **RBAC & Service Account**: Proper security controls and service account permissions
 
 ### Log Processing Pipeline
 
@@ -96,8 +61,7 @@ This project provides comprehensive log collection and processing for Kubernetes
 
 1. **Deploy Elasticsearch configuration:**
 ```bash
-kubectl apply -f fluentd-solution/configs/elasticsearch-config.yaml
-kubectl apply -f fluentd-solution/configs/elasticsearch-secret.yaml
+kubectl apply -f fluentd-solution/configs/elasticsearch-config-and-secret.yaml
 ```
 
 2. **Choose and deploy a Fluentd configuration:**
@@ -123,8 +87,6 @@ kubectl apply -f fluentd-solution/configs/fluentd-all-except-system-config.yaml
    ```bash
    kubectl apply -f fluentd-solution/configs/fluentd-daemonset.yaml
    ```
-
-
 
 ## Configuration Options
 
@@ -165,7 +127,7 @@ The system can be configured to automatically detect and parse custom log patter
 Configure the system to detect and parse logs with patterns like "ALERT":
 
 ```
-ALERT user=username,action=action_name,status=success,Field=field_name,old_value=old,new_value=new
+ALERT user=username,action=action_name,status=success,Field=field_name,original=old,updated=new
 ```
 
 Extracted fields:
@@ -173,8 +135,8 @@ Extracted fields:
 - `Action`: Action that was performed
 - `Status`: Operation status
 - `Field`: Field that was modified
-- `Old_value`: Previous value
-- `New_value`: New value
+- `Original`: Previous value
+- `Updated`: New value
 
 ### Custom Pattern Configuration
 
@@ -224,7 +186,11 @@ kubectl get configmap -n logging
 ```
 ├── fluentd-solution/
 │   └── configs/                    # Fluentd configurations
-└── README.md                       # This file
+├── examples/                       # Deployment examples
+│   ├── single-namespace/           # Single namespace examples
+│   └── multi-namespace/            # Multi-namespace examples
+├── docs/                          # Documentation and diagrams
+└── README.md                      # This file
 ```
 
 ### Adding New Configurations
@@ -252,6 +218,8 @@ kubectl get configmap -n logging
 
 ## Contributing
 
+We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details on how to submit pull requests, report issues, and contribute to the project.
+
 1. Fork the repository
 2. Create a feature branch
 3. Validate configuration changes
@@ -261,4 +229,3 @@ kubectl get configmap -n logging
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-

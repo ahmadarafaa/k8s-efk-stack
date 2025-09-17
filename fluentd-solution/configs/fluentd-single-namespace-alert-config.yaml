@@ -59,7 +59,7 @@ data:
       reserve_data true
       <parse>
         @type grok
-        grok_pattern ALERT\s*user=(?<User>[^,]+),\s*action=(?<Action>[^,]+),\s*status=(?<Status>[^,]+),\s*Field=(?<Field>[^,]+),\s*old_value=(?<Old_value>[^,]+),\s*new_value=(?<New_value>.+)
+        grok_pattern ALERT\s*user=(?<User>[^,]+),\s*action=(?<Action>[^,]+),\s*status=(?<Status>[^,]+),\s*Field=(?<Field>[^,]+),\s*original=(?<Original>[^,]+),\s*updated=(?<Updated>.+)
       </parse>
     </filter>
 
